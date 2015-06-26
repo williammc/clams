@@ -15,8 +15,7 @@ namespace clams {
 //! pixel id and depth value.  Here I've added color, too, so that this
 //represents everything
 //! that is known about a pixel in an RBGD camera.
-class ProjectivePoint {
-public:
+struct ProjectivePoint {
   int u_;
   int v_;
   //! In millimeters, same as the raw depth image from the primesense device.
@@ -25,28 +24,18 @@ public:
   unsigned char g_;
   unsigned char b_;
 
-public:
   // for serialization
   template <class Archive>
   void serialize(Archive &ar, const unsigned int version);
 };
 
-class Frame {
-public:
+
+// Frame =======================================================================
+struct Frame {
   Frame() {
-    prefix_ = "clams-frame";
-    timestamp_ = 0.0;
+    prefix = "clams-frame";
+    timestamp = 0.0;
   }
-
-  std::string& prefix() { return prefix_; }
-  double& timestamp() { return timestamp_; }
-  cv::Mat3b& img() {return img_; }
-  cv::Mat_<uint16_t>& depth() { return depth_; }
-
-  std::string prefix_;
-  double timestamp_;
-  cv::Mat3b img_;
-  cv::Mat_<uint16_t> depth_;
 
   cv::Mat3b depthImage() const;
 
@@ -54,11 +43,18 @@ protected:
   cv::Vec3b colorize(double depth, double min_range, double max_range) const;
 
 public:
+  std::string prefix;
+  double timestamp;
+  cv::Mat3b img;
+  cv::Mat_<uint16_t> depth;
+
   // for serialization
   template <class Archive>
   void serialize(Archive &ar, const unsigned int version);
 };
 
+
+// FrameProjector ==============================================================
 //! This is essentially a pinhole camera model for an RGBD sensor, with
 //! some extra functions added on for use during calibration.
 class FrameProjector {

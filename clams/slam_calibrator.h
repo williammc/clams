@@ -9,16 +9,11 @@
 #define MAX_RANGE_MAP 2
 
 namespace clams {
+class SlamCalibrationVisualizer;
 
 class SlamCalibrator {
 public:
-  using Ptr = std::shared_ptr<SlamCalibrator>;
-
-  FrameProjector proj_;
-  std::vector<Trajectory> trajectories_;
-  std::vector<StreamSequenceBase::ConstPtr> sseqs_;
-  std::vector<Cloud::ConstPtr> maps_;
-  int increment_;
+  SlamCalibrator() = default;
 
   SlamCalibrator(const FrameProjector &proj);
   Cloud::Ptr buildMap(unsigned int traj_idx);
@@ -35,7 +30,22 @@ public:
                     const Cloud &map,
                     DiscreteDepthDistortionModel *model) const;
 
+  FrameProjector& proj() { return proj_; }
+
+  std::vector<Trajectory>& trajectories() { return trajectories_; };
+  std::vector<StreamSequenceBase::ConstPtr>& sseqs() { return sseqs_; };
+  std::vector<Cloud::ConstPtr>& maps() { return maps_;};
+
+  int& increment() { return increment_; }
+
 protected:
+  friend class SlamCalibrationVisualizer;
+  FrameProjector proj_;
+  std::vector<Trajectory> trajectories_;
+  std::vector<StreamSequenceBase::ConstPtr> sseqs_;
+  std::vector<Cloud::ConstPtr> maps_;
+  int increment_;
 };
 
+using SlamCalibratorPtr = std::shared_ptr<SlamCalibrator>;
 } // namespace clams

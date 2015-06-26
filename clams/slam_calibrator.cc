@@ -7,7 +7,7 @@ SlamCalibrator::SlamCalibrator(const FrameProjector &proj)
     : proj_(proj), increment_(1) {}
 
 void filterFringe(Frame *frame) {
-  DepthMat &depth = frame->depth_;
+  DepthMat &depth = frame->depth;
 
   cv::Mat1b mask(depth.rows, depth.cols); // points to be removed.
   mask = 0;
@@ -163,8 +163,8 @@ size_t SlamCalibrator::processMap(const StreamSequenceBase &sseq,
 
     Frame mapframe;
     sseq.GetFrameProjector().estimateMapDepth(map, traj.get(idx).inverse().cast<float>(),
-                                measurement, &mapframe.depth());
-    counts[i] = model->accumulate(mapframe.depth(), measurement.depth());
+                                measurement, &mapframe.depth);
+    counts[i] = model->accumulate(mapframe.depth, measurement.depth);
 
     // cv::imshow("map", mapframe.depthImage());
     // cv::imshow("measurement", measurement.depthImage());
@@ -179,12 +179,12 @@ size_t SlamCalibrator::processMap(const StreamSequenceBase &sseq,
            u < std::min(640, u_center + radius + 1); ++u) {
         for (int v = std::max(0, v_center - radius);
              v < std::min(480, v_center + radius + 1); ++v) {
-          if (mapframe.depth()(v, u) == 0)
+          if (mapframe.depth(v, u) == 0)
             continue;
-          if (measurement.depth()(v, u) == 0)
+          if (measurement.depth(v, u) == 0)
             continue;
-          std::cerr << mapframe.depth()(v, u) * 0.001 << " "
-               << measurement.depth()(v, u) * 0.001 << std::endl;
+          std::cerr << mapframe.depth(v, u) * 0.001 << " "
+               << measurement.depth(v, u) * 0.001 << std::endl;
         }
       }
     }

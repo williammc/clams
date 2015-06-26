@@ -3,7 +3,6 @@
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/common/transforms.h>
 #include "stream_sequence/stream_sequence_base.h"
-#include "clams/common/lockable.h"
 #include "clams/slam_calibrator.h"
 
 namespace clams {

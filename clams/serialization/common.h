@@ -9,21 +9,28 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
+
 #ifdef _MSC_VER
 #include <boost/iostreams/filter/bzip2.hpp>
 #else
 #include <boost/iostreams/filter/zlib.hpp>
 #endif
+
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/serialization/array.hpp>
+#include <boost/serialization/deque.hpp>
+#include <boost/serialization/export.hpp>
 #include <boost/serialization/map.hpp>
 #include <boost/serialization/nvp.hpp>
+#include <boost/serialization/queue.hpp>
 #include <boost/serialization/set.hpp>
 #include <boost/serialization/shared_ptr.hpp>
 #include <boost/serialization/split_free.hpp>
-#include <boost/serialization/version.hpp>
-#include <boost/serialization/export.hpp>
+#include <boost/serialization/unique_ptr.hpp>
+#include <boost/serialization/unordered_map.hpp>
 #include <boost/serialization/utility.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/version.hpp>
 
 #include <Eigen/Core>
 
@@ -55,7 +62,7 @@ inline void serialize(
 
 // Eigen transform serialization ===============================================
 template <class Archive, typename Scalar, int DIM, int MODE, int Options>
-void serialize(
+inline void serialize(
     Archive& ar, Eigen::Transform<Scalar, DIM, MODE, Options>& tr,
     const unsigned int file_version) {
   auto m = tr.matrix();

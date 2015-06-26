@@ -1,8 +1,21 @@
 #pragma once
-#include <Eigen/Dense>
+#include <Eigen/Geometry>
+#include <array>
+#include <memory>
 #include <vector>
+#include "clams/common/clams_macros.h"
 
 namespace clams {
+
+/// [tx, ty, tz, rx, ry, rz, rw] to affine transformation
+Eigen::Affine3d to_affine(const std::array<float, 7>& cam);
+
+/// follow TUM format [tx, ty, tz, rx, ry, rz, rw]
+void read_pose_line_TUM(std::istream& is, double& timestamp,
+  Eigen::Affine3d& pose, bool left_handed);
+
+// affine to [tx, ty, tz, rx, ry, rz, rw]
+std::array<double, 7> to_cam(const Eigen::Affine3d& m);
 
 class Trajectory {
 public:
@@ -24,13 +37,18 @@ public:
   size_t numValid() const;
   std::string status(const std::string &prefix) const;
 
+  bool LoadExternalTUM(std::string filename);
+  void SaveExternalTUM(std::string filename);
+
 protected:
-  std::vector<Eigen::Affine3d *> transforms_;
+  std::vector<double> timestamps_;
+  std::vector<std::shared_ptr<Eigen::Affine3d>> transforms_;
 
 public:
   // for serialization
   template <class Archive>
   void serialize(Archive &ar, const unsigned int version) {
+    ar& timestamps_;
     ar& transforms_;
   }
 };

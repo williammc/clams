@@ -4,6 +4,14 @@
 
 namespace clams {
 
+inline void red_recording_line(std::istream& is, double& timestamp, std::string& color_fn,
+  std::string& depth_fn) {
+  std::string tag;
+  bool aligned;
+  is >> tag >> timestamp >> color_fn >> depth_fn >> aligned;
+}
+
+
 class StreamSequence : public StreamSequenceBase {
 public:
   using Ptr = std::shared_ptr<StreamSequence>;
@@ -22,6 +30,9 @@ public:
 
   //! Does not initialize anything.
   StreamSequence();
+
+  static StreamSequence::Ptr LoadExternalRecording(std::string full_fn);
+
   //! Creates a new directory at root_path for streaming to.
   void init(const std::string &root_path);
   //! Saves PrimeSenseModel and timestamps to root_path_.

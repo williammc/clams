@@ -1,6 +1,8 @@
 #include "stream_sequence/stream_sequence_base.h"
 #include "stream_sequence/stream_sequence.h"
 #include <limits>
+#include "clams/common/clams_macros.h"
+#include "clams/serialization/serialization.h"
 
 namespace clams {
 StreamSequenceBase::Ptr
@@ -58,13 +60,13 @@ Cloud::Ptr StreamSequenceBase::getCloud(double timestamp, double *dt) const {
 cv::Mat3b StreamSequenceBase::getImage(size_t idx) const {
   Frame frame;
   readFrame(idx, &frame);
-  return frame.img_;
+  return frame.img;
 }
 
 cv::Mat3b StreamSequenceBase::getImage(double timestamp, double *dt) const {
   Frame frame;
   readFrame(timestamp, dt, &frame);
-  return frame.img_;
+  return frame.img;
 }
 
 Cloud::ConstPtr StreamSequenceBase::operator[](size_t idx) const {

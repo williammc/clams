@@ -3,6 +3,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/foreach.hpp>
+
 #include "clams/serialization/serialization.h"
 
 namespace bfs = boost::filesystem;
@@ -10,6 +11,37 @@ namespace bfs = boost::filesystem;
 namespace clams {
 
 StreamSequence::StreamSequence() : max_depth_(std::numeric_limits<double>::max()) {}
+
+StreamSequence::Ptr StreamSequence::LoadExternalRecording(std::string full_fn) {
+  if (bfs::is_directory(full_fn) || !bfs::exists(full_fn)) {
+    std::cout << "Filename is a path or does not exists! " << full_fn << std::endl;
+    return StreamSequence::Ptr();
+  }
+  auto dir = bfs::path(full_fn).parent_path().string();
+  auto const filename = bfs::path(full_fn).filename().string();
+
+  StreamSequence::Ptr seg(new StreamSequence());
+  seg->root_path_ = dir;
+
+  std::ifstream ifs(full_fn);
+  while (!ifs.eof()) {
+    std::string cfn, dfn;
+    Frame fr;
+    red_recording_line(ifs, fr.timestamp, cfn, dfn);
+    fr.img = cv::imread(dir + "/" + cfn, -1);
+    fr.depth = cv::imread(dir + "/" + dfn, -1);
+    std::string fn = "clams-frame-" + std::to_string(fr.timestamp) + ".bin";
+    SerializeToFile(dir, fn, fr);
+    seg->frame_names_.push_back(fn);
+    seg->timestamps_.push_back(fr.timestamp);
+  }
+
+  seg->proj_ = FrameProjector();
+  seg->proj_.width_ = 640;
+  seg->proj_.height_ = 480;
+  seg->proj_.cx_ = seg->proj_.width_ / 2 + 0.5f;
+  seg->proj_.cy_ = seg->proj_.height_ / 2 + 0.5f;
+}
 
 void StreamSequence::init(const std::string &root_path) {
   assert(!bfs::exists(root_path));
@@ -26,7 +58,7 @@ void StreamSequence::loadImpl(const std::string &full_fn) {
     std::cout << "Path is not a path or does not exists! " << full_fn << std::endl;
     return;
   }
-  root_path_ = fs::path(full_fn).parent_path().string();
+  root_path_ = bfs::path(full_fn).parent_path().string();
   auto const filename = bfs::path(full_fn).filename().string();
   SerializeFromFile(root_path_, filename, *this);
 //   // ROS_WARN("Using old, deprecated StreamSequence.  FrameProjector is being "
@@ -107,7 +139,7 @@ void StreamSequence::writeFrame(const Frame &frame) {
   // fs.close();
   // clk_names_.push_back(oss.str());
 
-  timestamps_.push_back(frame.timestamp_);
+  timestamps_.push_back(frame.timestamp);
 }
 
 void StreamSequence::readFrameImpl(size_t idx, Frame *frame) const {
@@ -115,10 +147,10 @@ void StreamSequence::readFrameImpl(size_t idx, Frame *frame) const {
 
   SerializeFromFile(root_path_, frame_names_[idx], *frame);
   if (max_depth_ != std::numeric_limits<double>::max())
-    for (int y = 0; y < frame->depth_.rows; ++y)
-      for (int x = 0; x < frame->depth_.cols; ++x)
-        if (frame->depth_.at<uint16_t>(y, x) > max_depth_ * 1000)
-          frame->depth_.at<uint16_t>(y, x) = 0;
+    for (int y = 0; y < frame->depth.rows; ++y)
+      for (int x = 0; x < frame->depth.cols; ++x)
+        if (frame->depth(y, x) > max_depth_ * 1000)
+          frame->depth(y, x) = 0;
 }
 
 size_t StreamSequence::size() const {
@@ -132,5 +164,7 @@ void StreamSequence::serialize(Archive &ar, const unsigned int version) {
   ar& frame_names_;
   ar& max_depth_;
 }
+
+CLAMS_INSTANTIATE_SERIALIZATION_T(StreamSequence);
 
 } // namespace rgbd

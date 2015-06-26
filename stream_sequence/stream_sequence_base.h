@@ -3,7 +3,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/shared_ptr.hpp>
 #include <pcl/io/pcd_io.h>
-// #include <timer/timer.h>
+#include "clams/common/clams_macros.h"
 #include "stream_sequence/frame_projector.h"
 
 namespace clams {
@@ -13,7 +13,7 @@ public:
   using Ptr = std::shared_ptr<StreamSequenceBase>;
   using ConstPtr = std::shared_ptr<const StreamSequenceBase>;
 
-  StreamSequenceBase() : cache_size_(0) {}
+  StreamSequenceBase() : cache_size_(0), undistort_(false) {}
 
   virtual ~StreamSequenceBase() {}
 

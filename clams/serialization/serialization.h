@@ -1,15 +1,13 @@
 // Copyright 2014 The OSlam Authors. All rights reserved.
 #pragma once
 #include <boost/filesystem.hpp>
-#include <boost/serialization/deque.hpp>
-#include <boost/serialization/queue.hpp>
-#include <boost/serialization/unordered_map.hpp>
-#include <boost/serialization/vector.hpp>
+
 #include "clams/serialization/common.h"
 #include "clams/serialization/opencv.h"
+
 #include "clams/common/clams_defer.h"
 
-namespace fs = boost::filesystem;
+namespace bfs = boost::filesystem;
 // Useful routines for serialization.
 namespace clams {
 
@@ -24,8 +22,22 @@ enum {
 };
 
 template <typename T>
-inline void SerializeToFile(char const* filename, T const& data,
+inline void SerializeToFile(std::string full_fn, T const& data,
                             int archive_type = FILE_ARCHIVE_BINARY) {
+  auto working_path = bfs::path(full_fn).parent_path().string();
+  if (!bfs::is_directory(working_path) || bfs::is_directory(full_fn) ||
+      bfs::exists(full_fn)) {
+    std::cout << "Path is a path or does exists! " << full_fn << std::endl;
+    printf("Fail to serialize file to %s\n", full_fn.c_str());
+    return;
+  }
+  auto const filename = bfs::path(full_fn).filename().string();
+
+  const bfs::path pre_path = bfs::current_path();
+  auto d1 = defer([&pre_path] () {bfs::current_path(pre_path);});
+
+  bfs::current_path(working_path);  // cd to working path
+
   std::ofstream ofs;
   switch (archive_type) {
     case FILE_ARCHIVE_BINARY: {
@@ -59,12 +71,24 @@ inline void SerializeToFile(char const* filename, T const& data,
       printf("SerializeToFile(): Unknown archive type\n");
       exit(1);
   }
-  ofs.close();
 }
 
 template <typename T>
-inline void SerializeFromFile(char const* filename, T& data,
+inline void SerializeFromFile(std::string full_fn, T& data,
                               int archive_type = FILE_ARCHIVE_BINARY) {
+  if (bfs::is_directory(full_fn) || !bfs::exists(full_fn)) {
+    std::cout << "Path is a not path or does not exists! " << full_fn << std::endl;
+    printf("Fail to serialize file to %s\n", full_fn.c_str());
+    return;
+  }
+  auto working_path = bfs::path(full_fn).parent_path().string();
+  auto const filename = bfs::path(full_fn).filename().string();
+
+  const bfs::path pre_path = bfs::current_path();
+  auto d1 = defer([&pre_path] () {bfs::current_path(pre_path);});
+
+  bfs::current_path(working_path);  // cd to working path
+
   std::ifstream ifs;
   switch (archive_type) {
     case FILE_ARCHIVE_BINARY: {
@@ -103,16 +127,16 @@ inline void SerializeFromFile(char const* filename, T& data,
 template<class ObjectType>
 inline bool SerializeToFile(std::string path, std::string filename, ObjectType& obj,
                      int archive_type = FILE_ARCHIVE_BINARY) {
-  const fs::path working_path(path);
-  if (! (fs::is_directory(path) && fs::exists(path))) {
-    std::cout << "Path is not a path or does not exists! " << path << std::endl;
+  const bfs::path working_path(path);
+  if (!bfs::is_directory(path) || bfs::exists(path)) {
+    std::cout << "Path is not a path or does exists! " << path << std::endl;
     return false;
   }
-  const fs::path pre_path = fs::current_path();
-  auto d1 = clams::defer([&pre_path] () {fs::current_path(pre_path);});  // always go back
+  const bfs::path pre_path = bfs::current_path();
+  auto d1 = clams::defer([&pre_path] () {bfs::current_path(pre_path);});  // always go back
 
   // cd to working path
-  fs::current_path(working_path);
+  bfs::current_path(working_path);
   
   try {
     SerializeToFile(filename.c_str(), obj, archive_type);
@@ -126,19 +150,19 @@ inline bool SerializeToFile(std::string path, std::string filename, ObjectType& 
 template<class ObjectType>
 inline bool SerializeFromFile(std::string path, std::string filename, ObjectType& obj,
                        int archive_type = FILE_ARCHIVE_BINARY) {
-  const fs::path working_path(path);
-  if (! (fs::is_directory(path) && fs::exists(path))) {
+  const bfs::path working_path(path);
+  if (!bfs::is_directory(path) || !bfs::exists(path)) {
     std::cout << "Path is not a path or does not exists! " << path << std::endl;
     return false;
   }
-  const fs::path pre_path = fs::current_path();
-  auto d1 = defer([&pre_path] () {fs::current_path(pre_path);});  // always go back
+  const bfs::path pre_path = bfs::current_path();
+  auto d1 = defer([&pre_path] () {bfs::current_path(pre_path);});  // always go back
   
   // cd to working path
-  fs::current_path(working_path);
+  bfs::current_path(working_path);
 
-  fs::path fn(filename);
-  if (! (fs::is_regular_file(fn) && fs::exists(fn))) {
+  bfs::path fn(filename);
+  if (! (bfs::is_regular_file(fn) && bfs::exists(fn))) {
     std::cout << "Filename is not a file or does not exists! " 
               << filename << std::endl;
     return false;

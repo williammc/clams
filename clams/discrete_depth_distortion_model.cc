@@ -2,6 +2,7 @@
 #include <iostream>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
+#include "clams/common/clams_macros.h"
 #include "clams/serialization/serialization.h"
 
 namespace bfs = boost::filesystem;
@@ -223,4 +224,5 @@ DiscreteDepthDistortionModel::status(const std::string &prefix) const {
   return oss.str();
 }
 
+CLAMS_INSTANTIATE_SERIALIZATION_T(DiscreteDepthDistortionModel)
 } // namespace clams

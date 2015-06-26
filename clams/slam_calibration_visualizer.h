@@ -13,7 +13,7 @@ class SlamCalibrationVisualizer : public SharedLockable {
 public:
   DiscreteDepthDistortionModel *dddm_;
 
-  SlamCalibrationVisualizer(SlamCalibrator::Ptr calibrator);
+  SlamCalibrationVisualizer(SlamCalibratorPtr calibrator);
   ~SlamCalibrationVisualizer() {
     if (dddm_)
       delete dddm_;
@@ -24,7 +24,7 @@ public:
 
 protected:
   pcl::visualization::PCLVisualizer vis_;
-  SlamCalibrator::Ptr calibrator_;
+  SlamCalibratorPtr calibrator_;
   Cloud::Ptr map_;
   bool quitting_;
   bool needs_update_;

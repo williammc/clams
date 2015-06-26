@@ -6,7 +6,7 @@
 namespace clams {
 
 SlamCalibrationVisualizer::SlamCalibrationVisualizer(
-    SlamCalibrator::Ptr calibrator)
+    SlamCalibratorPtr calibrator)
     : dddm_(NULL), calibrator_(calibrator), map_(new Cloud), quitting_(false),
       needs_update_(false), seq_idx_(0), frame_idx_(0), show_frame_(false),
       use_distortion_model_(false), color_frame_(false) {
@@ -83,7 +83,7 @@ void SlamCalibrationVisualizer::visualizationThreadFunction() {
           sseq->readFrame(frame_idx_, &pose_frame);
           if (dddm_ && use_distortion_model_) {
             ScopedTimer st("Undistorting");
-            dddm_->undistort(pose_frame.depth());
+            dddm_->undistort(pose_frame.depth);
           }
           Cloud pose_pcd;
           sseq->GetFrameProjector().frameToCloud(pose_frame, &pose_pcd);

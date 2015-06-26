@@ -56,7 +56,7 @@ void TrajectoryVisualizer::run() {
           sseq_->readFrame(frame_idx_, &pose_frame);
           if (dddm_ && use_distortion_model_) {
             ScopedTimer st("Undistorting");
-            dddm_->undistort(pose_frame.depth());
+            dddm_->undistort(pose_frame.depth);
             st.StopAndPrint();
           }
           Cloud pose_pcd;
@@ -99,7 +99,7 @@ void TrajectoryVisualizer::run() {
 void TrajectoryVisualizer::pointPickingCallback(
     const pcl::visualization::PointPickingEvent &event, void *cookie) {
   scopeLockRead;
-  
+
   if (event.getPointIndex() == -1)
     return;
   if (!traj_.exists(frame_idx_))

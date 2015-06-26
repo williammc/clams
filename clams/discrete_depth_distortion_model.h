@@ -4,6 +4,7 @@
 #include <vector>
 #include <mutex>
 #include "stream_sequence/typedefs.h"
+#include "clams/common/clams_macros.h"
 #include "clams/common/clams_defer.h"
 
 namespace clams {
@@ -43,8 +44,9 @@ protected:
 
 #define scopeLockRead                                                          \
   lockRead();                                                                  \
-  auto tdefer = defer([&] (){ unlockRead(); });
+  auto tdefer =defer([&] (){ unlockRead(); });
 
+// DiscreteFrustum =============================================================
 class DiscreteFrustum : public SharedLockable {
 public:
   DiscreteFrustum(int smoothing = 1, double bin_depth = 1.0);
@@ -72,10 +74,10 @@ public:
   void serialize(Archive &ar, const unsigned int version);
 };
 
+
+// DiscreteDepthDistortionModel ================================================
 class DiscreteDepthDistortionModel {
 public:
-  typedef std::shared_ptr<DiscreteDepthDistortionModel> Ptr;
-  typedef std::shared_ptr<const DiscreteDepthDistortionModel> ConstPtr;
   DiscreteDepthDistortionModel() {}
   ~DiscreteDepthDistortionModel();
   DiscreteDepthDistortionModel(int width, int height, int bin_width = 8,
@@ -122,4 +124,5 @@ public:
   void serialize(Archive &ar, const unsigned int version);
 };
 
+using DiscreteDepthDistortionModelPtr = std::shared_ptr<DiscreteDepthDistortionModel>;
 } // namespace clams

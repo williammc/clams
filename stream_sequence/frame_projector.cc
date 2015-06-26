@@ -1,4 +1,6 @@
 #include "stream_sequence/frame_projector.h"
+#include "clams/common/clams_macros.h"
+#include "clams/serialization/serialization.h"
 
 namespace clams {
 
@@ -12,6 +14,9 @@ void ProjectivePoint::serialize(Archive &ar, const unsigned int version) {
   ar& b_;
 }
 
+CLAMS_INSTANTIATE_SERIALIZATION_T(ProjectivePoint);
+
+// Frame =======================================================================
 cv::Vec3b Frame::colorize(double depth, double min_range,
                           double max_range) const {
   if (depth == 0)
@@ -41,33 +46,36 @@ cv::Vec3b Frame::colorize(double depth, double min_range,
 }
 
 cv::Mat3b Frame::depthImage() const {
-  cv::Mat3b depth(depth_.rows, depth_.cols);
-  depth = cv::Vec3b(0, 0, 0);
+  cv::Mat3b dimg(depth.rows, depth.cols);
+  dimg = cv::Vec3b(0, 0, 0);
   for (int y = 0; y < depth.rows; ++y)
     for (int x = 0; x < depth.cols; ++x)
-      depth(y, x) = colorize(depth_.at<uint16_t>(y, x) * 0.001, 0, 10);
+      dimg(y, x) = colorize(depth.at<uint16_t>(y, x) * 0.001, 0, 10);
   return depth;
 }
 
 template <class Archive>
 void Frame::serialize(Archive &ar, const unsigned int version) {
-  ar& prefix_;
-  ar& timestamp_;
-  std::string fn = prefix_ + "-" + std::to_string(timestamp_) + "-color.png";
-  std::string dfn = prefix_ + "-" + std::to_string(timestamp_) + "-depth.png";
+  ar& prefix;
+  ar& timestamp;
+  std::string fn = prefix + "-" + std::to_string(timestamp) + "-color.png";
+  std::string dfn = prefix + "-" + std::to_string(timestamp) + "-depth.png";
   ar& fn;
   ar& dfn;
-  if (boost::is_saving::value(ar)) {
-    cv::cvtColor(img_, img_, CV_RGB2BGR);
-    cv::imwrite(img_, fn);
-    cv::imwrite(depth_, dfn);
+  if (Archive::is_saving::value) {
+    cv::cvtColor(img, img, CV_RGB2BGR);
+    cv::imwrite(fn, img);
+    cv::imwrite(dfn, depth);
   } else {
-    cv::cvtColor(img_, img_, CV_BGR2RGB);
-    img_ = cv::imread(fn, -1);
-    depth_ = cv::imread(dfn, -1);
+    cv::cvtColor(img, img, CV_BGR2RGB);
+    img = cv::imread(fn, -1);
+    depth = cv::imread(dfn, -1);
   }
 }
 
+CLAMS_INSTANTIATE_SERIALIZATION_T(Frame);
+
+// FrameProjector ==============================================================
 FrameProjector::FrameProjector()
     : width_(-1), height_(-1), cx_(-1), cy_(-1), fx_(-1), fy_(-1) {}
 
@@ -104,9 +112,9 @@ void FrameProjector::cloudToFrame(const Cloud &pcd, Frame *frame,
   assert(width_ != -1 && height_ != -1 && cx_ != -1 && cy_ != -1 &&
              fx_ != -1 && fy_ != -1);
 
-  frame->timestamp_ = pcd.header.stamp * 1e-9;
-  frame->depth_ = cv::Mat(height_, width_, CV_16UC1, cv::Scalar(0));
-  frame->img_ = cv::Mat3b(height_, width_);
+  frame->timestamp = pcd.header.stamp * 1e-9;
+  frame->depth = cv::Mat(height_, width_, CV_16UC1, cv::Scalar(0));
+  frame->img = cv::Mat3b(height_, width_);
 
   if (indexmap) {
     *indexmap = IndexMap(height_, width_);
@@ -130,12 +138,12 @@ void FrameProjector::cloudToFrame(const Cloud &pcd, Frame *frame,
     // cout << "u, v: " << ppt.u_ << " " << ppt.v_ << endl;
 
     // Take the closest point in pcd.
-    unsigned short curr_depth = frame->depth_.at<uint16_t>(ppt.v_, ppt.u_);
+    unsigned short curr_depth = frame->depth(ppt.v_, ppt.u_);
     if (curr_depth == 0 || ppt.z_ < curr_depth) {
-      frame->depth_.at<uint16_t>(ppt.v_, ppt.u_) = ppt.z_;
-      frame->img_(ppt.v_, ppt.u_)[0] = ppt.b_;
-      frame->img_(ppt.v_, ppt.u_)[1] = ppt.g_;
-      frame->img_(ppt.v_, ppt.u_)[2] = ppt.r_;
+      frame->depth(ppt.v_, ppt.u_) = ppt.z_;
+      frame->img(ppt.v_, ppt.u_)[0] = ppt.b_;
+      frame->img(ppt.v_, ppt.u_)[1] = ppt.g_;
+      frame->img(ppt.v_, ppt.u_)[2] = ppt.r_;
       if (indexmap) {
         (*indexmap)(ppt.v_, ppt.u_) = i;
       }
@@ -145,8 +153,8 @@ void FrameProjector::cloudToFrame(const Cloud &pcd, Frame *frame,
 
 void FrameProjector::frameToCloud(const Frame &frame, Cloud *pcd,
                                   double max_range) const {
-  const auto &dm = frame.depth_;
-  cv::Mat3b img = frame.img_;
+  const auto &dm = frame.depth;
+  cv::Mat3b img = frame.img;
 
   assert(fx_ > 0 && fy_ > 0 && cx_ > 0 && cy_ > 0);
   assert(dm.rows == img.rows);
@@ -159,7 +167,7 @@ void FrameProjector::frameToCloud(const Frame &frame, Cloud *pcd,
   pcd->width = dm.cols;
   pcd->is_dense = false;
   pcd->resize(dm.rows * dm.cols);
-  pcd->header.stamp = (frame.timestamp_) * 1e9;
+  pcd->header.stamp = (frame.timestamp) * 1e9;
 
   int idx = 0;
   ProjectivePoint ppt;
@@ -220,16 +228,6 @@ bool FrameProjector::initialized() const {
   return true;
 }
 
-template <class Archive>
-void FrameProjector::serialize(Archive &ar, const unsigned int version) {
-  ar& width_;
-  ar& height_;
-  ar& fx_;
-  ar& fy_;
-  ar& cx_;
-  ar& cy_;
-}
-
 std::string FrameProjector::status(const std::string &prefix) const {
   std::ostringstream oss;
   oss << prefix << "size: " << width_ << " x " << height_ << "\n";
@@ -246,9 +244,9 @@ void FrameProjector::estimateMapDepth(const Cloud &map,
                                       const Frame &measurement,
                                       DepthMat *estimate) const {
   // -- Reallocate estimate if necessary.
-  if (estimate->rows != measurement.depth_.rows ||
-      estimate->cols != measurement.depth_.cols) {
-    *estimate = DepthMat(measurement.depth_.rows, measurement.depth_.cols);
+  if (estimate->rows != measurement.depth.rows ||
+      estimate->cols != measurement.depth.cols) {
+    *estimate = DepthMat(measurement.depth.rows, measurement.depth.cols);
   }
   *estimate = 0;
 
@@ -261,8 +259,8 @@ void FrameProjector::estimateMapDepth(const Cloud &map,
   // -- Compute the edge-of-map mask.
   Frame naive_mapframe;
   cloudToFrame(transformed, &naive_mapframe);
-  const DepthMat &measurement_depth = measurement.depth_;
-  const DepthMat &naive_mapdepth = naive_mapframe.depth_;
+  const DepthMat &measurement_depth = measurement.depth;
+  const DepthMat &naive_mapdepth = naive_mapframe.depth;
   cv::Mat1b mask(measurement_depth.rows, measurement_depth.cols);
   mask = 0;
   for (int y = 0; y < mask.rows; ++y)
@@ -375,5 +373,17 @@ bool FrameProjector::coneFit(const DepthMat &naive_mapdepth,
   *stdev = std::sqrt(var);
   return true;
 }
+
+template <class Archive>
+void FrameProjector::serialize(Archive &ar, const unsigned int version) {
+  ar& width_;
+  ar& height_;
+  ar& fx_;
+  ar& fy_;
+  ar& cx_;
+  ar& cy_;
+}
+
+CLAMS_INSTANTIATE_SERIALIZATION_T(FrameProjector);
 
 } // namespace clams

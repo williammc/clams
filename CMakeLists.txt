@@ -9,7 +9,8 @@ add_definitions(-DCLAMS_ROOT="${CLAMS_ROOT}")
 
 # Look for our CMake modules paths
 set(CMAKER_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/external/cmaker)
-list(APPEND CMAKE_MODULE_PATH ${CMAKER_ROOT}/cmake
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake
+                              ${CMAKER_ROOT}/cmake
                               ${CMAKER_ROOT}/cmake/modules
                               ${CMAKE_CURRENT_SOURCE_DIR}/cmake
                               ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules
@@ -65,11 +66,25 @@ if(WIN32)
   set(Boost_USE_STATIC_LIBS  ON)
 endif(WIN32)
 
-find_package(Boost REQUIRED COMPONENTS system filesystem program_options)
+find_package(Boost REQUIRED COMPONENTS system filesystem program_options serialization bzip2)
 list(APPEND CLAMS_INC_DIRS ${Boost_INCLUDE_DIRS})
 list(APPEND CLAMS_EXTERNAL_LIBS ${Boost_LIBRARIES})
 list(APPEND CLAMS_LIB_DIRS ${Boost_LIBRARY_DIR})
 cmaker_print_status("Boost libs: ${Boost_LIBRARIES}")
+
+
+# OpenNI2
+find_package(OpenNI2)
+if (OPENNI2_FOUND)
+  list(APPEND CLAMS_INC_DIRS ${OPENNI2_INCLUDE_DIRS})
+  list(APPEND CLAMS_EXTERNAL_LIBS ${OPENNI2_LIBRARIES})
+  list(APPEND CLAMS_LIB_DIRS ${OPENNI2_LIB_DIR})
+  get_filename_component(OpenNI2_BINARY_DIR "${OPENNI2_LIB_DIR}/../Redist" ABSOLUTE)
+  list(APPEND THE_DEPEDENCIES_BINARY_PATHS ${OpenNI2_BINARY_DIR})
+endif()
+
+set(THE_DEPEDENCIES_BINARY_PATHS ${THE_DEPEDENCIES_BINARY_PATHS} ${EXTERNAL_BINARY_PATHS} PARENT_SCOPE)
+cmaker_print_status("THE_DEPEDENCIES_BINARY_PATHS:${THE_DEPEDENCIES_BINARY_PATHS}")
 
 # PCL
 set(PREBUILTS_DIR D:/deps_x86_vc12)
@@ -84,7 +99,7 @@ cmaker_cull_library_paths(PCL_LIBRARIES)
 list(APPEND EXTERNAL_LIBRARIES ${PCL_LIBRARIES})
 link_directories("${PREBUILTS_DIR}/flann/lib" "${VTK_DIR}" 
                  "${PREBUILTS_DIR}/pcl/lib")
-set(PCL_BINARY_DIR "${PREBUILTS_DIR}/pcl/bin")
+set(PCL_BINARY_DIR "${PREBUILTS_DIR}/pcl/bin;${PREBUILTS_DIR}/vtk-5.10/bin;${PREBUILTS_DIR}/flann/bin;")
 list(APPEND THE_DEPEDENCIES_BINARY_PATHS ${PCL_BINARY_DIR})
 
 add_definitions(${PCL_DEFINITIONS})
@@ -92,6 +107,7 @@ add_definitions(${PCL_DEFINITIONS})
 list(APPEND CLAMS_INC_DIRS ${PCL_INCLUDE_DIRS})
 list(APPEND CLAMS_EXTERNAL_LIBS ${PCL_LIBRARIES})
 list(APPEND CLAMS_LIB_DIRS ${PREBUILTS_DIR}/pcl/lib)
+cmaker_print_status("PCL_LIBRARIES:${PCL_LIBRARIES}")
 
 # OpenCV
 find_package(OpenCV REQUIRED)
@@ -144,6 +160,21 @@ set(ALL_LIBRARIES clams ${CLAMS_EXTERNAL_LIBS})
 set(CLAMS_ALL_LIBRARIES_PARENT_SCOPE ${ALL_LIBRARIES} PARENT_SCOPE)
 
 ##==============================================================================
+## programs
+file(GLOB prog_srcs ${CMAKE_CURRENT_SOURCE_DIR}/prog/*.cc)
+foreach(filename ${prog_srcs})
+  get_filename_component(prog_name ${filename} NAME_WE)
+  add_executable(${prog_name} ${filename})
+  target_link_libraries(${prog_name}  ${ALL_LIBRARIES})
+  set_property(TARGET ${prog_name} PROPERTY FOLDER "external/clams/progs")
+
+  if(SM_USE_COTIRE)
+    set_target_properties(${prog_name} PROPERTIES COTIRE_UNITY_LINK_LIBRARIES_INIT "COPY")
+    cotire(${prog_name})
+  endif()
+endforeach()
+
+##==============================================================================
 file(GLOB test_srcs ${CMAKE_CURRENT_SOURCE_DIR}/clams/test/*.cc)
 foreach(filename ${test_srcs})
   get_filename_component(test_name ${filename} NAME_WE)
@@ -184,8 +215,10 @@ if(WIN32)
   endif()
 
   cmaker_print_status("THE_DEPEDENCIES_BINARY_PATHS:${THE_DEPEDENCIES_BINARY_PATHS}")
-  list(APPEND THE_DEPEDENCIES_BINARY_PATHS "${VC_IDE_PATH}/../../VC" 
-"${VC_IDE_PATH}/../../VC/bin")
+  list(APPEND THE_DEPEDENCIES_BINARY_PATHS "${VC_IDE_PATH}/../../VC"  
+                                           "${VC_IDE_PATH}/../../VC/bin")
+  list(APPEND THE_DEPEDENCIES_BINARY_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
+  
   configure_file("${CMAKER_ROOT}/scripts/set_paths.bat.in" 
                  "${CMAKE_CURRENT_BINARY_DIR}/set_paths.bat")
   configure_file("${CMAKER_ROOT}/scripts/set_paths.bat.in" 

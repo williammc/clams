@@ -22,7 +22,8 @@ public:
 
   void load(const std::string &root_path);
 
-  std::string getRootPath() const { return root_path_; };
+  std::string getRootPath() const { return root_path_; }
+  void setRootPath(std::string rp) { root_path_ = rp; }
 
   virtual size_t size() const = 0;
 
@@ -81,11 +82,13 @@ public:
   template <class Archive>
   void serialize(Archive &ar, const unsigned int version) {
     ar& timestamps_;
+  printf("StreamSequenceBase::serialize >> 000\n");
     ar& proj_;
     
-    ar& frames_cache_;
+  printf("StreamSequenceBase::serialize >> 111\n");
+    // ar& frames_cache_;
     //ar& pcds_cache_;
-    ar& cache_size_;
+    // ar& cache_size_;
     ar& root_path_;
     ar& undistort_;
   }

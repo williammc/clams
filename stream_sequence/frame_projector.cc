@@ -56,12 +56,15 @@ cv::Mat3b Frame::depthImage() const {
 
 template <class Archive>
 void Frame::serialize(Archive &ar, const unsigned int version) {
+  printf("Frame::serialize 000\n");
   ar& prefix;
   ar& timestamp;
-  std::string fn = prefix + "-" + std::to_string(timestamp) + "-color.png";
-  std::string dfn = prefix + "-" + std::to_string(timestamp) + "-depth.png";
+  std::string tfn = prefix + "-" + std::to_string(timestamp);
+  std::string fn = tfn + "-color.png";
+  std::string dfn = tfn + "-depth.png";
   ar& fn;
   ar& dfn;
+  printf("Frame::serialize 111 fn:%s, dfn:%s\n", fn.c_str(), dfn.c_str());
   if (Archive::is_saving::value) {
     cv::cvtColor(img, img, CV_RGB2BGR);
     cv::imwrite(fn, img);
@@ -70,6 +73,8 @@ void Frame::serialize(Archive &ar, const unsigned int version) {
     cv::cvtColor(img, img, CV_BGR2RGB);
     img = cv::imread(fn, -1);
     depth = cv::imread(dfn, -1);
+    printf("Check frame img(%d, %d) depth(%d, %d)\n", img.cols,
+         img.rows, depth.cols, depth.rows);
   }
 }
 
@@ -155,6 +160,9 @@ void FrameProjector::frameToCloud(const Frame &frame, Cloud *pcd,
                                   double max_range) const {
   const auto &dm = frame.depth;
   cv::Mat3b img = frame.img;
+
+  printf("width_:%d height_:%d img(%d, %d)\n",
+    width_, height_, img.cols, img.rows);
 
   assert(fx_ > 0 && fy_ > 0 && cx_ > 0 && cy_ > 0);
   assert(dm.rows == img.rows);

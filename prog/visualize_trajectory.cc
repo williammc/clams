@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
   clams::SerializeFromFile(traj_path, traj);
 
   clams::StreamSequenceBase::Ptr sseq(new clams::StreamSequence());
-  clams::SerializeFromFile(sseq_path, *sseq);
+  sseq->load(sseq_path);
 
   clams::Cloud::Ptr map(new clams::Cloud);
   pcl::io::loadPCDFile<pcl::PointXYZRGB>(map_path, *map);

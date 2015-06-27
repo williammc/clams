@@ -29,7 +29,7 @@ public:
   void clear();
   //! Destroys everything inside.
   void resize(size_t num);
-  void set(size_t idx, const Eigen::Affine3d &transform);
+  void set(size_t idx, const Eigen::Affine3d &transform, double timestamp);
   const Eigen::Affine3d &get(size_t idx) const;
   bool exists(size_t idx) const;
   void remove(size_t idx);

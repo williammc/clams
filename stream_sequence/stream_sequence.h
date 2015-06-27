@@ -30,8 +30,10 @@ public:
 
   //! Does not initialize anything.
   StreamSequence();
+  ~StreamSequence();
 
-  static StreamSequence::Ptr LoadExternalRecording(std::string full_fn);
+  static StreamSequence::Ptr
+  LoadExternalRecording(std::string full_fn, std::string out_sseq_full_fn);
 
   //! Creates a new directory at root_path for streaming to.
   void init(const std::string &root_path);

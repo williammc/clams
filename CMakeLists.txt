@@ -50,7 +50,10 @@ endif()
 set(EIGEN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/eigen-3.2.1)
 include_directories(${EIGEN_INCLUDE_DIR})
 
-## Ceres Solver
+set(PREBUILTS_DIR C:/Users/Thanh/deps_x86_vc12)
+
+## Ceres Solver 
+set(Ceres_DIR ${PREBUILTS_DIR}/ceres-solver/CMake)
 cmaker_print_status("EIGEN_INCLUDE_DIR:${EIGEN_INCLUDE_DIR}")
 find_package(Ceres REQUIRED)
 list(APPEND CLAMS_INC_DIRS ${CERES_INCLUDE_DIRS})
@@ -58,7 +61,7 @@ list(APPEND CLAMS_EXTERNAL_LIBS debug ceres-debug optimized ceres)
 list(APPEND CLAMS_LIB_DIRS ${Ceres_DIR}/../lib)
 
 # Boost 
-set(BOOST_ROOT D:/deps_x86_vc12/boost)
+set(BOOST_ROOT ${PREBUILTS_DIR}/boost)
 set(Boost_INCLUDE_DIR ${BOOST_ROOT})
 set(BOOST_LIBRARYDIR ${BOOST_ROOT}/stage/lib)
 
@@ -87,9 +90,7 @@ set(THE_DEPEDENCIES_BINARY_PATHS ${THE_DEPEDENCIES_BINARY_PATHS} ${EXTERNAL_BINA
 cmaker_print_status("THE_DEPEDENCIES_BINARY_PATHS:${THE_DEPEDENCIES_BINARY_PATHS}")
 
 # PCL
-set(PREBUILTS_DIR D:/deps_x86_vc12)
 set(FLANN_ROOT "${PREBUILTS_DIR}/flann")
-set(QHULL_ROOT "${PREBUILTS_DIR}/qhull")
 set(VTK_DIR "${PREBUILTS_DIR}/vtk-5.10/lib/vtk-5.10")
 set(PCL_DIR "${PREBUILTS_DIR}/pcl/cmake")
 
@@ -97,16 +98,17 @@ find_package(PCL REQUIRED)
 include_directories(${PCL_INCLUDE_DIRS})
 cmaker_cull_library_paths(PCL_LIBRARIES)
 list(APPEND EXTERNAL_LIBRARIES ${PCL_LIBRARIES})
-link_directories("${PREBUILTS_DIR}/flann/lib" "${VTK_DIR}" 
-                 "${PREBUILTS_DIR}/pcl/lib")
 set(PCL_BINARY_DIR "${PREBUILTS_DIR}/pcl/bin;${PREBUILTS_DIR}/vtk-5.10/bin;${PREBUILTS_DIR}/flann/bin;")
 list(APPEND THE_DEPEDENCIES_BINARY_PATHS ${PCL_BINARY_DIR})
 
 add_definitions(${PCL_DEFINITIONS})
 
-list(APPEND CLAMS_INC_DIRS ${PCL_INCLUDE_DIRS})
+list(APPEND CLAMS_INC_DIRS ${PCL_INCLUDE_DIRS}
+                           "${PREBUILTS_DIR}/flann/lib"
+                           "${PREBUILTS_DIR}/vtk-5.10/include/vtk-5.10")
 list(APPEND CLAMS_EXTERNAL_LIBS ${PCL_LIBRARIES})
-list(APPEND CLAMS_LIB_DIRS ${PREBUILTS_DIR}/pcl/lib)
+list(APPEND CLAMS_LIB_DIRS ${PREBUILTS_DIR}/pcl/lib ${FLANN_ROOT}/lib  
+                           "${PREBUILTS_DIR}/vtk-5.10/lib/vtk-5.10")
 cmaker_print_status("PCL_LIBRARIES:${PCL_LIBRARIES}")
 
 # OpenCV
@@ -218,6 +220,7 @@ if(WIN32)
   list(APPEND THE_DEPEDENCIES_BINARY_PATHS "${VC_IDE_PATH}/../../VC"  
                                            "${VC_IDE_PATH}/../../VC/bin")
   list(APPEND THE_DEPEDENCIES_BINARY_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
+  list(APPEND THE_DEPEDENCIES_BINARY_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/bin)
   
   configure_file("${CMAKER_ROOT}/scripts/set_paths.bat.in" 
                  "${CMAKE_CURRENT_BINARY_DIR}/set_paths.bat")

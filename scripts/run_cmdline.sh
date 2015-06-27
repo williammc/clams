@@ -6,11 +6,12 @@ if [ -z "${1+set}" ]; then # argument 1 is case number
 fi
 
 data_path_prefix=E:  # for windows on office PC
-# data_path_prefix=C:/Users/thanh  # for windows on Bootcamp Mac Pro
+data_path_prefix=C:/Users/thanh  # for windows on Bootcamp Mac Pro
 synthetic=1
 # datatype="synthetic"
 datatype="recording"
 if [ -z "${3+set}" ]; then # argument 2 is data_path
+  case "$datatype" in
   # if [ $synthetic -eq 1 ]; then
   "synthetic")
     prefix=$data_path_prefix/data/structural_modeling/synthetic_models
@@ -33,11 +34,11 @@ if [ -z "${3+set}" ]; then # argument 2 is data_path
   "recording")
     prefix=$data_path_prefix/data/structural_modeling/recording
 
-    data_path=$prefix/20140612-box-20degree
+    # data_path=$prefix/20140612-box-20degree
 
     # data_path=$prefix/20140612-box-1 # good simple scene
 
-    # data_path=$prefix/20140612-box-2 # good simple scene
+    data_path=$prefix/20140612-box-2 # good simple scene
 
     # data_path=$prefix/office-10 # good
 
@@ -83,23 +84,26 @@ case "$1" in
 
 "convert")
   convert_trajectory --rec $data_path/$filename.txt \
-  --sseq $data_path/clams-sseq.bin --src $data_path/oslam.txt \
-  --dst $data_path/clams-traj.bin
+  --sseq $data_path/clams/clams-sseq.bin --src $data_path/trajectory/oslam.txt \
+  --dst $data_path/clams/clams-traj.bin
+  ;;
 
 "gen")
-  generate_map --sseq $data_path/clams-sseq.bin --traj $data_path/clams-traj.bin \
-  --resolution 0.01 --max-range 2.0 --map $data_path/clams-map.pcd
+  generate_map --sseq $data_path/clams/clams-sseq.bin --traj $data_path/clams/clams-traj.bin \
+  --resolution 0.01 --max-range 2.0 --map $data_path/clams/clams-map.pcd
+  ;;
 
 "calibrate")
   calibrate --workspace $data_path --increment 1
-
-"vis_mo")
-  visualize_model --intrinsics $data_path/clams-calib.bin
   ;;
 
-"vis_traj")
-  visualize_trajectory --sseq $data_path/clams-sseq.bin --traj $data_path/clams-traj.bin \
-  --map $data_path/clams-map.pcd
+"vis-mo")
+  visualize_model --intrinsics $data_path/clams/clams-calib.bin
+  ;;
+
+"vis-traj")
+  visualize_trajectory --sseq $data_path/clams/clams-sseq.bin --traj $data_path/clams/clams-traj.bin \
+  --map $data_path/clams/clams-map.pcd
   ;;
 
 esac

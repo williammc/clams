@@ -62,18 +62,21 @@ Trajectory::~Trajectory() { clear(); }
 
 void Trajectory::clear() {
   transforms_.clear();
+  timestamps_.clear();
 }
 
 void Trajectory::resize(size_t num) {
   clear();
   transforms_.resize(num);
+  timestamps_.resize(num);
 }
 
-void Trajectory::set(size_t idx, const Eigen::Affine3d &transform) {
-  if (transforms_[idx])
+void Trajectory::set(size_t idx, const Eigen::Affine3d &transform, double timestamp) {
+  if (transforms_[idx]) 
     *transforms_[idx] = transform;
   else
     transforms_[idx].reset(new Eigen::Affine3d(transform));
+  timestamps_[idx] = timestamp;
 }
 
 const Eigen::Affine3d &Trajectory::get(size_t idx) const {

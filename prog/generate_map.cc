@@ -58,15 +58,13 @@ int main(int argc, char **argv) {
   clams::SerializeFromFile(traj_path, traj);
 
   clams::StreamSequence::Ptr sseq(new clams::StreamSequence());
-  clams::SerializeFromFile(sseq_path, *sseq);
+  sseq->load(sseq_path);
 
   std::cout << "Building map from " << std::endl;
   std::cout << "  " << sseq_path << std::endl;
   std::cout << "  " << traj_path << std::endl;
   std::cout << "Saving to " << map_path << std::endl;
-
+ 
   clams::Cloud::Ptr map = clams::SlamCalibrator::buildMap(sseq, traj, max_range, resolution);
   pcl::io::savePCDFileBinary(map_path, *map);
-
-  return 0;
 }

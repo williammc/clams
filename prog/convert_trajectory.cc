@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
   std::string src;
   std::string dst;
   opts_desc.add_options()("help,h", "produce help message")(
-      "rec", bpo::value(&sseq_path)->required(), "Recording file")(
+      "rec", bpo::value(&rec_path)->required(), "Recording file")(
       "sseq", bpo::value(&sseq_path)->required(), "StreamSequence")(
       "src", bpo::value(&src)->required(), "Freiburg trajectory file")(
       "dst", bpo::value(&dst)->required(), "Clams trajectory file");
@@ -47,28 +47,35 @@ int main(int argc, char **argv) {
   }
 
   clams::StreamSequenceBase::Ptr sseq =
-      clams::StreamSequence::LoadExternalRecording(rec_path);
-  clams::SerializeToFile(sseq_path, *sseq);
+      clams::StreamSequence::LoadExternalRecording(rec_path, sseq_path);
+
+  std::cout << "Load trajectory from :" << src << std::endl;
+  if (!bfs::exists(src)) {
+    printf("Fail to read trajectory from NOT exists file:%s\n", src.c_str());
+    return 1;
+  }
 
   clams::Trajectory traj;
   traj.resize(sseq->size());
 
-  std::ifstream frei;
-  frei.open(src.c_str());
+  std::ifstream frei(src);
   while (true) {
     double timestamp, tx, ty, tz, qx, qy, qz, qw;
     frei >> timestamp >> tx >> ty >> tz >> qx >> qy >> qz >> qw;
+    printf("Read line %f, %f, %f, %f, %f, %f, %f, %f\n", timestamp, tx, ty, tz,
+           qx, qy, qz, qw);
     if (frei.eof())
       break;
 
     double dt;
     size_t idx = sseq->seek(timestamp, &dt);
-    assert(dt < 1e-6);
+    // assert(dt < 1e-6);
+    printf("associate idx:%u timestamp:%f\n", idx, timestamp);
 
     Eigen::Quaternion<double> rotation(qw, qx, qy, qz);
     Eigen::Translation<double, 3> translation(tx, ty, tz);
     Eigen::Affine3d transform = translation * rotation;
-    traj.set(idx, transform);
+    traj.set(idx, transform, timestamp);
   }
   clams::SerializeToFile(dst, traj);
   std::cout << "Saved to " << dst << std::endl;

@@ -60,8 +60,8 @@ Cloud::Ptr SlamCalibrator::buildMap(StreamSequenceBase::ConstPtr sseq,
     if (!traj.exists(i))
       continue;
 
-    // if(i % traj.size() / 10 == 0)
-    //   cout << "." << flush;
+    if(i % traj.size() / 10 == 0)
+      std::cout << "." << std::flush;
     Frame frame;
 
     sseq->readFrame(i, &frame);

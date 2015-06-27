@@ -25,12 +25,9 @@ template <typename T>
 inline void SerializeToFile(std::string full_fn, T const& data,
                             int archive_type = FILE_ARCHIVE_BINARY) {
   auto working_path = bfs::path(full_fn).parent_path().string();
-  if (!bfs::is_directory(working_path) || bfs::is_directory(full_fn) ||
-      bfs::exists(full_fn)) {
-    std::cout << "Path is a path or does exists! " << full_fn << std::endl;
-    printf("Fail to serialize file to %s\n", full_fn.c_str());
-    return;
-  }
+  if (!bfs::exists(working_path))
+    bfs::create_directory(working_path);
+
   auto const filename = bfs::path(full_fn).filename().string();
 
   const bfs::path pre_path = bfs::current_path();
@@ -128,10 +125,8 @@ template<class ObjectType>
 inline bool SerializeToFile(std::string path, std::string filename, ObjectType& obj,
                      int archive_type = FILE_ARCHIVE_BINARY) {
   const bfs::path working_path(path);
-  if (!bfs::is_directory(path) || bfs::exists(path)) {
-    std::cout << "Path is not a path or does exists! " << path << std::endl;
-    return false;
-  }
+  if (!bfs::exists(path))
+    bfs::create_directory(path);
   const bfs::path pre_path = bfs::current_path();
   auto d1 = clams::defer([&pre_path] () {bfs::current_path(pre_path);});  // always go back
 
@@ -150,11 +145,12 @@ inline bool SerializeToFile(std::string path, std::string filename, ObjectType& 
 template<class ObjectType>
 inline bool SerializeFromFile(std::string path, std::string filename, ObjectType& obj,
                        int archive_type = FILE_ARCHIVE_BINARY) {
-  const bfs::path working_path(path);
-  if (!bfs::is_directory(path) || !bfs::exists(path)) {
-    std::cout << "Path is not a path or does not exists! " << path << std::endl;
+  if (!bfs::exists(path + "/" + filename)) {
+    std::cout << "File does not exists! " << path + "/" + filename << std::endl;
+    printf("Fail to deserialize from file\n");
     return false;
   }
+  const bfs::path working_path(path);
   const bfs::path pre_path = bfs::current_path();
   auto d1 = defer([&pre_path] () {bfs::current_path(pre_path);});  // always go back
   

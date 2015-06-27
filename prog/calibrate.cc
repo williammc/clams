@@ -12,8 +12,9 @@ int main(int argc, char **argv) {
   bpo::positional_options_description p;
 
   std::string workspace;
-  opts_desc.add_options()("help,h", "produce help message")
-  ("workspace", bpo::value(&workspace)->default_value("."), "CLAMS workspace.")
+  opts_desc.add_options()
+  ("help,h", "produce help message")
+  ("workspace", bpo::value(&workspace)->default_value("."), "CLAMS WORKSPACE.")
   ("increment", bpo::value<int>()->default_value(1),
                           "Use every kth frame for calibration.");
 
@@ -33,47 +34,38 @@ int main(int argc, char **argv) {
   }
   if (opts.count("help") || badargs) {
     std::cout << "Usage: " << bfs::basename(argv[0])
-              << " [ OPTS ] CLAMS_WORKSPACE " << std::endl;
+              << " [ OPTS ] workspace " << std::endl;
     std::cout << "  This program will calibrate using all slam results in "
-                 "CLAMS_WORKSPACE/." << std::endl;
+                 "workspace/." << std::endl;
     std::cout << std::endl;
     std::cout << opts_desc << std::endl;
     return 1;
   }
 
-  // -- Check for existence of CLAMS_WORKSPACE/slam_results.
-  std::string sequences_path = workspace + "/sequences";
-  std::string results_path = workspace + "/slam_results";
-  if (!bfs::exists(results_path)) {
-    std::cout << "Expected results path \"" << results_path
-              << "\" does not exist." << std::endl;
-    std::cout << "Are you running this program from within a CLAMS workspace?"
-              << std::endl;
-    std::cout << "Have you run \"rosrun clams slam\" yet?" << std::endl;
-    return 0;
-  }
-
   clams::SlamCalibratorPtr calibrator(new clams::SlamCalibrator());
 
   // -- Get names of sequences that have corresponding results.
-  std::vector<std::string> sseq_names;
-  bfs::directory_iterator it(results_path), eod;
+  std::vector<std::string> haveclams_folders;
+  bfs::directory_iterator it(workspace), eod;
   BOOST_FOREACH (const bfs::path &p, std::make_pair(it, eod)) {
-    std::string path = results_path + "/" + p.leaf().string() + "/trajectory";
-    if (bfs::exists(path))
-      sseq_names.push_back(p.leaf().string());
+    std::string path = workspace + "/" + p.leaf().string() + "/clams";
+    if (bfs::exists(path) && bfs::exists(path + "/" + "clams-traj.bin"))
+      haveclams_folders.push_back(p.leaf().string());
   }
-  sort(sseq_names.begin(), sseq_names.end());
+  std::sort(haveclams_folders.begin(), haveclams_folders.end());
+
+  if (haveclams_folders.empty()) {
+    printf("NO input directory found from \"%s\"\n", workspace);
+    printf("Are you running this program from with correct workspace input?\n");
+    return 1;
+  }
 
   // -- Construct sseqs with corresponding trajectories.
-  std::vector<clams::StreamSequenceBase::ConstPtr> sseqs;
-  std::vector<clams::Trajectory> trajs;
-  std::vector<clams::Cloud::ConstPtr> maps;
-  for (size_t i = 0; i < sseq_names.size(); ++i) {
-    std::string sseq_path = sequences_path + "/" + sseq_names[i];
-    std::string traj_path = results_path + "/" + sseq_names[i] + "/trajectory";
-    std::string map_path =
-        results_path + "/" + sseq_names[i] + "/clams-calib.pcd";
+  for (size_t i = 0; i < haveclams_folders.size(); ++i) {
+    std::string prefix = workspace + "/" + haveclams_folders[i] + "/clams";
+    std::string sseq_path =  prefix + "/clams-sseq.bin";
+    std::string traj_path = prefix + "/clams-traj.bin";
+    std::string map_path = prefix + "/clams-map.pcd";
 
     std::cout << "Sequence " << i << std::endl;
     std::cout << "  StreamSequence:" << sseq_path << std::endl;
@@ -81,7 +73,7 @@ int main(int argc, char **argv) {
     std::cout << "  Map: " << map_path << std::endl;
 
     clams::StreamSequence::Ptr sseq(new clams::StreamSequence());
-    clams::SerializeFromFile(sseq_path, *sseq);
+    sseq->load(sseq_path);
     calibrator->sseqs().push_back(sseq);
 
     clams::Trajectory traj;
@@ -94,7 +86,7 @@ int main(int argc, char **argv) {
   }
 
   // -- Run the calibrator.
-  calibrator->proj() = sseqs.front()->GetFrameProjector();
+  calibrator->proj() = calibrator->sseqs().front()->GetFrameProjector();
 
   std::cout << std::endl;
   if (opts.count("increment")) {
@@ -105,14 +97,12 @@ int main(int argc, char **argv) {
   std::cout << std::endl;
 
   clams::DiscreteDepthDistortionModel model = calibrator->calibrate();
-  std::string output_path = workspace + "/distortion_model";
+  std::string output_path = workspace + "/clams/distortion_model.bin";
   model.save(output_path);
   std::cout << "Saved distortion model to " << output_path << std::endl;
 
-  std::string vis_dir = output_path + "-visualization";
-  model.visualize(vis_dir);
-  std::cout << "Saved visualization of distortion model to " << vis_dir
-            << std::endl;
-
-  return 0;
+  // std::string vis_dir = output_path + "-visualization";
+  // model.visualize(vis_dir);
+  // std::cout << "Saved visualization of distortion model to " << vis_dir
+  //           << std::endl;
 }

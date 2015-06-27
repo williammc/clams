@@ -94,7 +94,7 @@ case "$1" in
   ;;
 
 "calibrate")
-  calibrate --workspace $data_path --increment 1
+  calibrate --increment 1 --workspace $prefix
   ;;
 
 "vis-mo")

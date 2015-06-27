@@ -74,8 +74,8 @@ template <typename T>
 inline void SerializeFromFile(std::string full_fn, T& data,
                               int archive_type = FILE_ARCHIVE_BINARY) {
   if (bfs::is_directory(full_fn) || !bfs::exists(full_fn)) {
-    std::cout << "Path is a not path or does not exists! " << full_fn << std::endl;
-    printf("Fail to serialize file to %s\n", full_fn.c_str());
+    std::cout << "Path is a path or does not exists! " << full_fn << std::endl;
+    printf("Fail to serialize file from %s\n", full_fn.c_str());
     return;
   }
   auto working_path = bfs::path(full_fn).parent_path().string();

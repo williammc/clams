@@ -1,4 +1,5 @@
 #include "clams/slam_map.h"
+#include <opencv2/highgui/highgui.hpp>
 #include <pcl/filters/voxel_grid.h>
 #include "clams/common/timer.h"
 #include "clams/common/clams_macros.h"
@@ -6,7 +7,9 @@
 
 namespace clams {
 
-SlamMap::SlamMap() : working_path_("."), undistorted_(false) {}
+SlamMap::SlamMap()
+    : working_path_("."), undistorted_(false),
+      max_depth_(std::numeric_limits<double>::max()) {}
 
 bool SlamMap::Load(const std::string &slammap_file) {
   bool ok = SerializeFromFile(slammap_file, *this);
@@ -35,7 +38,8 @@ bool SlamMap::LoadRecordingAndTrajectory(std::string traj_file,
   
   traj_file_ = traj_file;
   rec_file_ = rec_file;
-  printf("SlamMap::LoadExternalRecording>> load trajectory file\n");
+  printf("SlamMap::LoadExternalRecording>> load trajectory file:%s\n",
+    traj_file.c_str());
   if (bfs::is_directory(traj_file) || !bfs::exists(traj_file)) {
     std::cout << "Filename is a path or does not exists! " << traj_file
               << std::endl;
@@ -45,8 +49,10 @@ bool SlamMap::LoadRecordingAndTrajectory(std::string traj_file,
   while (true) {
     double timestamp, tx, ty, tz, qx, qy, qz, qw;
     frei >> timestamp >> tx >> ty >> tz >> qx >> qy >> qz >> qw;
-    printf("Read line %f, %f, %f, %f, %f, %f, %f, %f\n", timestamp, tx, ty, tz,
-           qx, qy, qz, qw);
+    
+    if (traj_timeposes_.size() % 30 == 0)
+      printf("Read line %f, %f, %f, %f, %f, %f, %f, %f\n", timestamp, tx, ty, tz,
+             qx, qy, qz, qw);
     if (frei.eof())
       break;
 
@@ -57,7 +63,8 @@ bool SlamMap::LoadRecordingAndTrajectory(std::string traj_file,
     traj_timeposes_.push_back(std::make_pair(timestamp, transform));
   }
 
-  printf("SlamMap::LoadExternalRecording>> load recording file\n");
+  printf("SlamMap::LoadExternalRecording>> load recording file:%s\n",
+    rec_file.c_str());
   if (bfs::is_directory(rec_file) || !bfs::exists(rec_file)) {
     std::cout << "Filename is a path or does not exists! " << rec_file
               << std::endl;
@@ -70,6 +77,9 @@ bool SlamMap::LoadRecordingAndTrajectory(std::string traj_file,
     std::string cfn, dfn;
     Frame fr;
     red_recording_line(ifs, fr.timestamp, cfn, dfn);
+    if (rec_timeframes_.size() % 30 == 0)
+      printf("read recording line timestamp:%f cfn:%s dfn:%s\n",
+        fr.timestamp, cfn.c_str(), dfn.c_str());
     fr.img = cv::imread(rec_dir + "/" + cfn, -1);
     cv::cvtColor(fr.img, fr.img, CV_BGR2RGB);
     fr.depth = cv::imread(rec_dir + "/" + dfn, -1);
@@ -77,9 +87,13 @@ bool SlamMap::LoadRecordingAndTrajectory(std::string traj_file,
     if (fr.img.empty() || fr.depth.empty())
       continue;
 
+    // cv::imshow("depth", fr.DepthImage());
+    // cv::waitKey();
+
     std::string base_fn = get_frame_name(fr);
     std::string full_fn = working_path_ + "/" + base_fn;
-    printf("Serialize Frame to %s\n", full_fn.c_str());
+    if (rec_timeframes_.size() % 30 == 0)
+      printf("Serialize Frame to %s\n", full_fn.c_str());
     SerializeToFile(full_fn, fr);
     rec_timeframes_.push_back(std::make_pair(fr.timestamp, base_fn));
   }
@@ -99,7 +113,7 @@ bool SlamMap::LoadRecordingAndTrajectory(std::string traj_file,
     size_t idx = SeekInFrames(timestamp, &dt);
     // assert(dt < 1e-6);
     printf("associate idx:%u timestamp:%f dt:%f\n", idx, timestamp, dt);
-    if (dt < 1.e-6)
+    // if (dt < 1.e-6)
       traj_associate_frames_[i] = idx;
   }
 }
@@ -114,6 +128,7 @@ Cloud::Ptr SlamMap::GeneratePointcloud(
       std::cout << "." << std::flush;
     Frame frame;
     ReadFrameInTrajectory(i, frame);
+
     frame.FilterFringe();
 
     Cloud::Ptr tmp(new Cloud);
@@ -166,16 +181,13 @@ size_t SlamMap::ReadFrameInTrajectory(double timestamp, double *dt,
 void SlamMap::ReadFrameInTrajectory(size_t idx, Frame& frame) const {
   assert(idx < traj_associate_frames_.size());
   idx = traj_associate_frames_[idx];
-
-  printf("SlamMap>> read frame from :%s\n", rec_timeframes_[idx].second.c_str());
-  SerializeFromFile(working_path_ + "/" + rec_timeframes_[idx].second, frame);
+  std::string fn = working_path_ + "/" + rec_timeframes_[idx].second;
+  SerializeFromFile(fn, frame);
   if (max_depth_ != std::numeric_limits<double>::max())
     for (int y = 0; y < frame.depth.rows; ++y)
       for (int x = 0; x < frame.depth.cols; ++x)
         if (frame.depth(y, x) > max_depth_ * 1000)
           frame.depth(y, x) = 0;
-  printf("SlamMap>> check frame img(%d, %d) depth(%d, %d)\n", frame.img.cols,
-         frame.img.rows, frame.depth.cols, frame.depth.rows);
 }
 
 size_t SlamMap::SeekInFrames(double timestamp, double *dt) const {

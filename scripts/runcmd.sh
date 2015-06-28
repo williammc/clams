@@ -89,7 +89,9 @@ case "$1" in
   ;;
 
 "gen")
-  generate_map --rec $data_path/$filename.txt \
+  generate_slammap --cam_params 640 --cam_params 480 --cam_params 525 --cam_params 525 \
+  --cam_params 319.5 --cam_params 239.5 \
+  --rec $data_path/$filename.txt \
   --traj_file $data_path/trajectory/oslam.txt \
   --slammap_file $data_path/clams/clams-slammap.bin \
   --pointcloud $data_path/clams/clams-cloud.pcd \

@@ -24,8 +24,7 @@ int main(int argc, char **argv) {
   ("rec", bpo::value(&rec_file)->required(), "Recording file")
   ("traj_file", bpo::value(&traj_file)->required(), "Freiburg trajectory file")
   
-  // ("cam_params", bpo::value(&cam_params)->default_value(std::vector<float>(0)),
-  //     "camera parameters.")
+  ("cam_params", bpo::value(&cam_params), "camera parameters.")
 
   ("slammap_file", bpo::value(&slammap_file)->required(), "StreamSequence")
   ("pointcloud", bpo::value(&cloud_file)->required(),
@@ -70,7 +69,7 @@ int main(int argc, char **argv) {
 
   clams::SlamMap slammap;
   slammap.working_path(bfs::path(slammap_file).parent_path().string());
-  slammap.LoadRecordingAndTrajectory(rec_file, traj_file, cam);
+  slammap.LoadRecordingAndTrajectory(traj_file, rec_file, cam);
 
   clams::SerializeToFile(slammap_file, slammap);
   std::cout << "Saved slam map to " << slammap_file << std::endl;
@@ -78,8 +77,9 @@ int main(int argc, char **argv) {
 
   std::cout << "Building map from " << std::endl;
   std::cout << "  " << slammap_file << std::endl;
-  std::cout << "Saving to " << cloud_file << std::endl;
  
   clams::Cloud::Ptr map = slammap.GeneratePointcloud(max_range, resolution);
+  
+  std::cout << "Saving to " << cloud_file << std::endl;
   pcl::io::savePCDFileBinary(cloud_file, *map);
 }

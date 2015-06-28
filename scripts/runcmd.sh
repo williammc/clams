@@ -82,12 +82,6 @@ echo "Case $1"
 
 case "$1" in
 
-"convert")
-  convert_trajectory --rec $data_path/$filename.txt \
-  --sseq $data_path/clams/clams-sseq.bin --src $data_path/trajectory/oslam.txt \
-  --dst $data_path/clams/clams-traj.bin
-  ;;
-
 "gen")
   generate_slammap --cam_params 640 --cam_params 480 --cam_params 525 --cam_params 525 \
   --cam_params 319.5 --cam_params 239.5 \
@@ -102,14 +96,22 @@ case "$1" in
   calibrate --increment 1 --workspace $prefix
   ;;
 
-# "vis-mo")
-#   visualize_model --intrinsics $data_path/clams/clams-calib.bin
-#   ;;
+"vis-mo")
+  visualize_model --intrinsics $prefix/clams/distortion_model.bin
+  ;;
 
-# "vis-traj")
-#   visualize_trajectory --sseq $data_path/clams/clams-sseq.bin --traj $data_path/clams/clams-traj.bin \
-#   --map $data_path/clams/clams-map.pcd
-#   ;;
+"undistort")
+  input_path=$data_path
+  input_path=$prefix/20140612-ceiling-1
+  undistort --intrinsics $prefix/clams/distortion_model.bin \
+  --color_file $input_path/kinect_recorder_000000-color.png \
+  --depth_file $input_path/kinect_recorder_000000-depth.png
+  ;;
+
+"exp-slmap")
+  exp_slammap --slammap_file $data_path/clams/clams-slammap.bin \
+  --pointcloud $data_path/clams/clams-cloud.pcd 
+  ;;
 
 esac
 

@@ -1,7 +1,8 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/io/pcd_io.h>
 
-#include "stream_sequence/stream_sequence.h"
 #include "clams/slam_calibrator.h"
 #include "clams/serialization/serialization.h"
 
@@ -49,7 +50,7 @@ int main(int argc, char **argv) {
   bfs::directory_iterator it(workspace), eod;
   BOOST_FOREACH (const bfs::path &p, std::make_pair(it, eod)) {
     std::string path = workspace + "/" + p.leaf().string() + "/clams";
-    if (bfs::exists(path) && bfs::exists(path + "/" + "clams-traj.bin"))
+    if (bfs::exists(path) && bfs::exists(path + "/" + "clams-slammap.bin"))
       haveclams_folders.push_back(p.leaf().string());
   }
   std::sort(haveclams_folders.begin(), haveclams_folders.end());
@@ -60,33 +61,27 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  // -- Construct sseqs with corresponding trajectories.
+  // -- Construct slammaps with corresponding trajectories.
   for (size_t i = 0; i < haveclams_folders.size(); ++i) {
     std::string prefix = workspace + "/" + haveclams_folders[i] + "/clams";
-    std::string sseq_path =  prefix + "/clams-sseq.bin";
-    std::string traj_path = prefix + "/clams-traj.bin";
-    std::string map_path = prefix + "/clams-map.pcd";
+    std::string slammap_path =  prefix + "/clams-slammap.bin";
+    std::string cloud_path = prefix + "/clams-cloud.pcd";
 
     std::cout << "Sequence " << i << std::endl;
-    std::cout << "  StreamSequence:" << sseq_path << std::endl;
-    std::cout << "  Trajectory: " << traj_path << std::endl;
-    std::cout << "  Map: " << map_path << std::endl;
+    std::cout << "  SlamMap:" << slammap_path << std::endl;
+    std::cout << "  Map: " << cloud_path << std::endl;
 
-    clams::StreamSequence::Ptr sseq(new clams::StreamSequence());
-    sseq->load(sseq_path);
-    calibrator->sseqs().push_back(sseq);
-
-    clams::Trajectory traj;
-    clams::SerializeFromFile(traj_path, traj);
-    calibrator->trajectories().push_back(traj);
+    clams::SlamMap slammap;
+    slammap.Load(slammap_path);
+    calibrator->slam_maps().push_back(slammap);
 
     clams::Cloud::Ptr map(new clams::Cloud);
-    pcl::io::loadPCDFile<pcl::PointXYZRGB>(map_path, *map);
-    calibrator->maps().push_back(map);
+    pcl::io::loadPCDFile<pcl::PointXYZRGB>(cloud_path, *map);
+    calibrator->slam_maps().back().pointcloud(map);
   }
 
   // -- Run the calibrator.
-  calibrator->proj() = calibrator->sseqs().front()->GetFrameProjector();
+  calibrator->proj() = calibrator->slam_maps().front().frame_projector();
 
   std::cout << std::endl;
   if (opts.count("increment")) {
@@ -96,7 +91,7 @@ int main(int argc, char **argv) {
   }
   std::cout << std::endl;
 
-  clams::DiscreteDepthDistortionModel model = calibrator->calibrate();
+  clams::DiscreteDepthDistortionModel model = calibrator->Calibrate();
   std::string output_path = workspace + "/clams/distortion_model.bin";
   model.save(output_path);
   std::cout << "Saved distortion model to " << output_path << std::endl;

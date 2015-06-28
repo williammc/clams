@@ -89,22 +89,25 @@ case "$1" in
   ;;
 
 "gen")
-  generate_map --sseq $data_path/clams/clams-sseq.bin --traj $data_path/clams/clams-traj.bin \
-  --resolution 0.01 --max-range 2.0 --map $data_path/clams/clams-map.pcd
+  generate_map --rec $data_path/$filename.txt \
+  --traj_file $data_path/trajectory/oslam.txt \
+  --slammap_file $data_path/clams/clams-slammap.bin \
+  --pointcloud $data_path/clams/clams-cloud.pcd \
+  --resolution 0.01 --max-range 2.0 
   ;;
 
 "calibrate")
   calibrate --increment 1 --workspace $prefix
   ;;
 
-"vis-mo")
-  visualize_model --intrinsics $data_path/clams/clams-calib.bin
-  ;;
+# "vis-mo")
+#   visualize_model --intrinsics $data_path/clams/clams-calib.bin
+#   ;;
 
-"vis-traj")
-  visualize_trajectory --sseq $data_path/clams/clams-sseq.bin --traj $data_path/clams/clams-traj.bin \
-  --map $data_path/clams/clams-map.pcd
-  ;;
+# "vis-traj")
+#   visualize_trajectory --sseq $data_path/clams/clams-sseq.bin --traj $data_path/clams/clams-traj.bin \
+#   --map $data_path/clams/clams-map.pcd
+#   ;;
 
 esac
 

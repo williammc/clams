@@ -22,7 +22,7 @@ enum {
 };
 
 template <typename T>
-inline void SerializeToFile(std::string full_fn, T const& data,
+inline bool SerializeToFile(std::string full_fn, T const& data,
                             int archive_type = FILE_ARCHIVE_BINARY) {
   auto working_path = bfs::path(full_fn).parent_path().string();
   if (!bfs::exists(working_path))
@@ -68,15 +68,16 @@ inline void SerializeToFile(std::string full_fn, T const& data,
       printf("SerializeToFile(): Unknown archive type\n");
       exit(1);
   }
+  return true;
 }
 
 template <typename T>
-inline void SerializeFromFile(std::string full_fn, T& data,
+inline bool SerializeFromFile(std::string full_fn, T& data,
                               int archive_type = FILE_ARCHIVE_BINARY) {
   if (bfs::is_directory(full_fn) || !bfs::exists(full_fn)) {
     std::cout << "Path is a path or does not exists! " << full_fn << std::endl;
     printf("Fail to serialize file from %s\n", full_fn.c_str());
-    return;
+    return false;
   }
   auto working_path = bfs::path(full_fn).parent_path().string();
   auto const filename = bfs::path(full_fn).filename().string();
@@ -118,7 +119,8 @@ inline void SerializeFromFile(std::string full_fn, T& data,
       printf("SerializeFromFile(): Unknown archive type\n");
       exit(1);
   }
-  ifs.close();
+  
+  return true;
 }
 
 template<class ObjectType>

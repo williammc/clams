@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <vector>
 #include <mutex>
-#include "stream_sequence/typedefs.h"
+#include "clams/common/typedefs.h"
 #include "clams/common/clams_macros.h"
 #include "clams/common/clams_defer.h"
 

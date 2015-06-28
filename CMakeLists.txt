@@ -133,7 +133,7 @@ link_directories(${CLAMS_LIB_DIRS})
 set(CLAMS_INC_DIRS_PARENT_SCOPE ${CLAMS_INC_DIRS} PARENT_SCOPE)
 set(CLAMS_LIB_DIRS_PARENT_SCOPE ${CLAMS_LIB_DIRS} PARENT_SCOPE)
 
-set(sub_dirs clams clams/common clams/serialization stream_sequence)
+set(sub_dirs clams clams/common clams/serialization)
 
 set(REG_EXT "[^/]*([.]cpp|[.]c|[.]cc|[.]h|[.]hpp)$")
 foreach(sub_dir ${sub_dirs})

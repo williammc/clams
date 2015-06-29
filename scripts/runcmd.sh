@@ -92,6 +92,11 @@ case "$1" in
   --resolution 0.01 --max-range 2.0 
   ;;
 
+"exp-slmap")
+  exp_slammap --slammap_file $data_path/clams/clams-slammap.bin \
+  --pointcloud $data_path/clams/clams-cloud.pcd 
+  ;;
+
 "calibrate")
   calibrate --increment 1 --workspace $prefix
   ;;
@@ -106,11 +111,6 @@ case "$1" in
   undistort --intrinsics $prefix/clams/distortion_model.bin \
   --color_file $input_path/kinect_recorder_000000-color.png \
   --depth_file $input_path/kinect_recorder_000000-depth.png
-  ;;
-
-"exp-slmap")
-  exp_slammap --slammap_file $data_path/clams/clams-slammap.bin \
-  --pointcloud $data_path/clams/clams-cloud.pcd 
   ;;
 
 esac

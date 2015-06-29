@@ -81,7 +81,6 @@ bool SlamMap::LoadRecordingAndTrajectory(std::string traj_file,
       printf("read recording line timestamp:%f cfn:%s dfn:%s\n",
         fr.timestamp, cfn.c_str(), dfn.c_str());
     fr.img = cv::imread(rec_dir + "/" + cfn, -1);
-    cv::cvtColor(fr.img, fr.img, CV_BGR2RGB);
     fr.depth = cv::imread(rec_dir + "/" + dfn, -1);
 
     if (fr.img.empty() || fr.depth.empty())

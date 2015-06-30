@@ -20,6 +20,7 @@ int main(int argc, char **argv) {
   std::string cloud_file;
   float max_range;
   float resolution;
+  unsigned skip_poses;
   opts_desc.add_options()("help,h", "produce help message")
   ("rec", bpo::value(&rec_file)->required(), "Recording file")
   ("traj_file", bpo::value(&traj_file)->required(), "Freiburg trajectory file")
@@ -29,16 +30,19 @@ int main(int argc, char **argv) {
   ("slammap_file", bpo::value(&slammap_file)->required(), "StreamSequence")
   ("pointcloud", bpo::value(&cloud_file)->required(),
       "Where to save the output pointcloud.")
-  ("max-range", bpo::value(&max_range)->default_value(MAX_RANGE_MAP),
+  ("max_range", bpo::value(&max_range)->default_value(MAX_RANGE_MAP),
       "Maximum range to use when building the map from the given trajectory, "
       "in meters.")
   ("resolution", bpo::value(&resolution)->default_value(0.01),
-      "Resolution of the voxel grid used for filtering.");
+      "Resolution of the voxel grid used for filtering.")
+  ("skip_poses", bpo::value(&skip_poses)->default_value(30),
+      "Number of poses to skip");
 
   p.add("rec", 1);
   p.add("traj_file", 1);
   p.add("slammap_file", 1);
   p.add("pointcloud", 1);
+  p.add("skip_poses", 1);
 
   bpo::variables_map opts;
   bpo::store(bpo::command_line_parser(argc, argv)
@@ -52,12 +56,12 @@ int main(int argc, char **argv) {
   } catch (...) {
     badargs = true;
   }
-  if (cam_params.size() != 6) {
+  if (cam_params.size() < 6) {
     printf("Bad camera parameters input\n");
     badargs = true;
   }
-  std::array<float, 6> cam;
-  for (int i = 0; i < 6; ++i)
+  std::array<float, 9> cam;
+  for (int i = 0; i < std::min(9, int(cam_params.size())); ++i)
     cam[i] = cam_params[i];
 
   if (opts.count("help") || badargs) {
@@ -68,11 +72,15 @@ int main(int argc, char **argv) {
   }
 
   clams::SlamMap slammap;
-  slammap.working_path(bfs::path(slammap_file).parent_path().string());
-  slammap.LoadRecordingAndTrajectory(traj_file, rec_file, cam);
-
-  clams::SerializeToFile(slammap_file, slammap);
-  std::cout << "Saved slam map to " << slammap_file << std::endl;
+  if (bfs::exists(slammap_file)) {
+    printf("Load slammap from (%s)\n", slammap_file.c_str());
+    slammap.Load(slammap_file);
+  } else {
+    slammap.working_path(bfs::path(slammap_file).parent_path().string());
+    slammap.LoadTrajectoryAndRecording(traj_file, rec_file, cam, skip_poses);
+    clams::SerializeToFile(slammap_file, slammap);
+    std::cout << "Saved slam map to " << slammap_file << std::endl;
+  }
 
 
   std::cout << "Building map from " << std::endl;

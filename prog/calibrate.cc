@@ -3,6 +3,7 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
 
+#include "clams/cam_calib.h"
 #include "clams/slam_calibrator.h"
 #include "clams/serialization/serialization.h"
 
@@ -13,11 +14,15 @@ int main(int argc, char **argv) {
   bpo::positional_options_description p;
 
   std::string workspace;
+  std::vector<float> calib_params; // type, width, height, cell_unit
   opts_desc.add_options()
   ("help,h", "produce help message")
   ("workspace", bpo::value(&workspace)->default_value("."), "CLAMS WORKSPACE.")
   ("increment", bpo::value<int>()->default_value(1),
-                          "Use every kth frame for calibration.");
+                          "Use every kth frame for calibration.")
+  ("calib_params", bpo::value(&calib_params)->required(),
+                          "Calibration target params (type, width, height, cell_unit.\n"
+                            "type (0:CHECKER_BOARD, 1:DOT_BOARD, 2:ASYM_DOT_BOARD)");
 
   p.add("workspace", 1);
 
@@ -83,6 +88,13 @@ int main(int argc, char **argv) {
   // -- Run the calibrator.
   calibrator->proj() = calibrator->slam_maps().front().frame_projector();
 
+  if (calib_params.size() == 4) {
+    auto t = clams::CalibPattern::get_type(std::to_string(calib_params[0]));
+    if (t != clams::CalibPattern::Type::UNDEFINE) {
+      calibrator->pattern() = clams::CalibPattern(
+          t, cv::Size(calib_params[1], calib_params[2]), calib_params[3]);
+    }
+  }
   std::cout << std::endl;
   if (opts.count("increment")) {
     calibrator->increment() = opts["increment"].as<int>();

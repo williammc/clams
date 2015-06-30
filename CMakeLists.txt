@@ -47,18 +47,14 @@ endif()
 
 ## Dependencies ================================================================
 # Eigen
-set(EIGEN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/eigen-3.2.1)
-include_directories(${EIGEN_INCLUDE_DIR})
+set(EIGEN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/slick/external/eigen-3.2.2)
+list(APPEND CLAMS_INC_DIRS ${EIGEN_INCLUDE_DIR})
 
-set(PREBUILTS_DIR C:/Users/Thanh/deps_x86_vc12)
+# Slick
+set(Slick_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/slick)
+list(APPEND CLAMS_INC_DIRS ${Slick_DIR})
 
-## Ceres Solver 
-set(Ceres_DIR ${PREBUILTS_DIR}/ceres-solver/CMake)
-cmaker_print_status("EIGEN_INCLUDE_DIR:${EIGEN_INCLUDE_DIR}")
-find_package(Ceres REQUIRED)
-list(APPEND CLAMS_INC_DIRS ${CERES_INCLUDE_DIRS})
-list(APPEND CLAMS_EXTERNAL_LIBS debug ceres-debug optimized ceres)
-list(APPEND CLAMS_LIB_DIRS ${Ceres_DIR}/../lib)
+set(PREBUILTS_DIR D:/deps_x86_vc12)
 
 # Boost 
 set(BOOST_ROOT ${PREBUILTS_DIR}/boost)

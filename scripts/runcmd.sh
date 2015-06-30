@@ -6,7 +6,7 @@ if [ -z "${1+set}" ]; then # argument 1 is case number
 fi
 
 data_path_prefix=E:  # for windows on office PC
-data_path_prefix=C:/Users/thanh  # for windows on Bootcamp Mac Pro
+# data_path_prefix=C:/Users/thanh  # for windows on Bootcamp Mac Pro
 synthetic=1
 # datatype="synthetic"
 datatype="recording"
@@ -38,23 +38,23 @@ if [ -z "${3+set}" ]; then # argument 2 is data_path
 
     # data_path=$prefix/20140612-box-1 # good simple scene
 
-    data_path=$prefix/20140612-box-2 # good simple scene
+    # data_path=$prefix/20140612-box-2 # good simple scene
 
     # data_path=$prefix/office-10 # good
 
-    # data_path=$prefix/boxes-1 # good for segmentation
+    data_path=$prefix/boxes-1 # good for segmentation
     # data_path=$prefix/boxes-2
 
     # # data_path=$prefix/kinect-white-boxes-1 # not good
     # data_path=$prefix/backup-1/kinect-white-boxes-2 # good slammap
+
+    # data_path=$prefix/corridor-4 # good
 
     # data_path=$prefix/kitchen-1
     # data_path=$prefix/kitchen-2 # slammap quite ok
 
     # # results not clean enough
     # data_path=$prefix/kitchen-3 # good slammap
-
-    # data_path=$prefix/corridor-4 # good
 
     # data_path=$prefix/seminar-3 # ok
 
@@ -86,10 +86,10 @@ case "$1" in
   generate_slammap --cam_params 640 --cam_params 480 --cam_params 525 --cam_params 525 \
   --cam_params 319.5 --cam_params 239.5 \
   --rec $data_path/$filename.txt \
-  --traj_file $data_path/trajectory/oslam.txt \
+  --traj_file  $data_path/oslam/oslam.txt \
   --slammap_file $data_path/clams/clams-slammap.bin \
   --pointcloud $data_path/clams/clams-cloud.pcd \
-  --resolution 0.01 --max-range 2.0 
+  --resolution 0.01 --max_range 2.0 --skip_poses 20
   ;;
 
 "exp-slmap")
@@ -97,20 +97,21 @@ case "$1" in
   --pointcloud $data_path/clams/clams-cloud.pcd 
   ;;
 
-"calibrate")
-  calibrate --increment 1 --workspace $prefix
+"calib")
+  calibrate --increment 3 --workspace $prefix
   ;;
 
 "vis-mo")
   visualize_model --intrinsics $prefix/clams/distortion_model.bin
   ;;
 
-"undistort")
+"undist")
   input_path=$data_path
-  input_path=$prefix/20140612-ceiling-1
+  # input_path=$prefix/20140612-ceiling-1
+  file_prefix=sensor_recorder_000172
   undistort --intrinsics $prefix/clams/distortion_model.bin \
-  --color_file $input_path/kinect_recorder_000000-color.png \
-  --depth_file $input_path/kinect_recorder_000000-depth.png
+  --color_file $input_path/$file_prefix-color.png \
+  --depth_file $input_path/$file_prefix-depth.png
   ;;
 
 esac

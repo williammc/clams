@@ -32,35 +32,44 @@ inline std::string get_frame_name(const Frame& fr) {
   return "clams-frame-" + std::to_string(fr.timestamp) + ".bin";
 }
 
-bool SlamMap::LoadRecordingAndTrajectory(std::string traj_file,
+bool SlamMap::LoadTrajectoryAndRecording(std::string traj_file,
                                          std::string rec_file,
-                                         std::array<float, 6> cam_params) {
+                                         std::array<float, 9> cam_params,
+                                         unsigned skip_poses) {
   
   traj_file_ = traj_file;
   rec_file_ = rec_file;
-  printf("SlamMap::LoadExternalRecording>> load trajectory file:%s\n",
-    traj_file.c_str());
-  if (bfs::is_directory(traj_file) || !bfs::exists(traj_file)) {
-    std::cout << "Filename is a path or does not exists! " << traj_file
-              << std::endl;
-    return false;
-  }
-  std::ifstream frei(traj_file);
-  while (true) {
-    double timestamp, tx, ty, tz, qx, qy, qz, qw;
-    frei >> timestamp >> tx >> ty >> tz >> qx >> qy >> qz >> qw;
-    
-    if (traj_timeposes_.size() % 30 == 0)
-      printf("Read line %f, %f, %f, %f, %f, %f, %f, %f\n", timestamp, tx, ty, tz,
-             qx, qy, qz, qw);
-    if (frei.eof())
-      break;
 
-    Eigen::Quaternion<double> rotation(qw, qx, qy, qz);
-    Eigen::Translation<double, 3> translation(tx, ty, tz);
-    Eigen::Affine3d transform = translation * rotation;
+  if (!traj_file_.empty()) {
+    printf("SlamMap::LoadExternalRecording>> load trajectory file:%s\n",
+      traj_file.c_str());
+    if (bfs::is_directory(traj_file) || !bfs::exists(traj_file)) {
+      std::cout << "Filename is a path or does not exists! " << traj_file
+                << std::endl;
+      return false;
+    }
+    std::ifstream frei(traj_file);
+    int line_count = 0;
+    while (true) {
+      double timestamp, tx, ty, tz, qx, qy, qz, qw;
+      frei >> timestamp >> tx >> ty >> tz >> qx >> qy >> qz >> qw;
+      line_count += 1;
+      if (traj_timeposes_.size() % 30 == 0)
+        printf("Read line %f, %f, %f, %f, %f, %f, %f, %f\n", timestamp, tx, ty, tz,
+               qx, qy, qz, qw);
+      if (frei.eof())
+        break;
 
-    traj_timeposes_.push_back(std::make_pair(timestamp, transform));
+      if (line_count % skip_poses != 0) 
+        continue;
+
+      Eigen::Quaternion<double> rotation(qw, qx, qy, qz);
+      Eigen::Translation<double, 3> translation(tx, ty, tz);
+      Eigen::Affine3d transform = translation * rotation;
+
+      traj_timeposes_.push_back(std::make_pair(timestamp, transform));
+
+    }
   }
 
   printf("SlamMap::LoadExternalRecording>> load recording file:%s\n",
@@ -73,10 +82,16 @@ bool SlamMap::LoadRecordingAndTrajectory(std::string traj_file,
   auto rec_dir = bfs::path(rec_file).parent_path().string();
 
   std::ifstream ifs(rec_file);
+  int count = 0;
   while (!ifs.eof()) {
+    count += 1;
     std::string cfn, dfn;
     Frame fr;
     red_recording_line(ifs, fr.timestamp, cfn, dfn);
+
+    if (count % skip_poses != 1)
+      continue;
+
     if (rec_timeframes_.size() % 30 == 0)
       printf("read recording line timestamp:%f cfn:%s dfn:%s\n",
         fr.timestamp, cfn.c_str(), dfn.c_str());
@@ -93,16 +108,20 @@ bool SlamMap::LoadRecordingAndTrajectory(std::string traj_file,
     std::string full_fn = working_path_ + "/" + base_fn;
     if (rec_timeframes_.size() % 30 == 0)
       printf("Serialize Frame to %s\n", full_fn.c_str());
-    SerializeToFile(full_fn, fr);
+    if (!bfs::exists(full_fn))
+      SerializeToFile(full_fn, fr);
     rec_timeframes_.push_back(std::make_pair(fr.timestamp, base_fn));
+
+    if (traj_file_.empty()) {
+      traj_timeposes_.push_back(std::make_pair(fr.timestamp, Eigen::Affine3d()));
+    }
   }
 
-  proj_.width_ = cam_params[0];
-  proj_.height_ = cam_params[1];
-  proj_.fx_ = cam_params[2];
-  proj_.fy_ = cam_params[3];
-  proj_.cx_ = cam_params[4];
-  proj_.cy_ = cam_params[5];
+  Eigen::VectorXf x(9);
+  for (int i = 0; i < 9; ++i)
+    x[i] = cam_params[i];
+
+  proj_.poli_cam() = slick::PoliCamera<double>(x);
 
   printf("SlamMap::LoadExternalRecording>> find associate frames for trajectory\n");
   traj_associate_frames_.resize(traj_timeposes_.size(), -1);

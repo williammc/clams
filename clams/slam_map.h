@@ -28,8 +28,9 @@ struct SlamMap {
   /// @rec_file in recording format of me
   /// @traj_file in TUM trajectory file format
   /// @cam_params : width, height, fx, fy, cx, cy
-  bool LoadRecordingAndTrajectory(std::string traj_file, std::string rec_file,
-                                  std::array<float, 6> cam_params);
+  bool LoadTrajectoryAndRecording(std::string traj_file, std::string rec_file,
+                                  std::array<float, 9> cam_params,
+                                  unsigned skip_poses);
   Cloud::Ptr GeneratePointcloud(float max_range = MAX_RANGE_MAP, 
     float resolution = DEFAULT_VGSIZE) const;
 

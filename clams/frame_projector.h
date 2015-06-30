@@ -5,7 +5,10 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include "slick/datatypes.h"
+#include "slick/scene/poli_camera.h"
 #include "clams/common/typedefs.h"
+#include "clams/cam_calib.h"
 
 namespace clams {
 
@@ -15,22 +18,22 @@ namespace clams {
 //represents everything
 //! that is known about a pixel in an RBGD camera.
 struct ProjectivePoint {
-  int u_;
-  int v_;
+  int u;
+  int v;
   //! In millimeters, same as the raw depth image from the primesense device.
-  unsigned short z_;
-  unsigned char r_;
-  unsigned char g_;
-  unsigned char b_;
+  unsigned short z;
+  unsigned char r;
+  unsigned char g;
+  unsigned char b;
 
   // for serialization
   template <class Archive>
   void serialize(Archive &ar, const unsigned int version);
 };
 
-
 // Frame =======================================================================
 struct Frame {
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Frame() {
     prefix = "clams-frame";
     timestamp = 0.0;
@@ -47,6 +50,11 @@ public:
   double timestamp;
   cv::Mat3b img;
   cv::Mat_<uint16_t> depth;
+  CenterLocPairVec measurements; // world_point-pixel_location pairs
+
+  // conventional data
+  slick::SE3d target2cam; // calibration target to camera pose
+  Eigen::Vector4d target_plane; // in camera coordinate
 
   // for serialization
   template <class Archive>
@@ -63,14 +71,10 @@ public:
   using RangeIndex = std::vector<std::vector<std::vector<double>>>;
   using IndexMap = Eigen::Matrix<size_t, Eigen::Dynamic, Eigen::Dynamic>;
 
-  int width_;
-  int height_;
-  double fx_;
-  double fy_;
-  double cx_;
-  double cy_;
-
   FrameProjector();
+
+  void ReestimatePoseAndPlane(Frame &frame,
+                              const Eigen::Vector4d &target_plane) const;
 
   //! max_range in meters
   void
@@ -84,19 +88,34 @@ public:
   //depth frame
   //! will be returned.
   void EstimateMapDepth(const Cloud &map, const Eigen::Affine3f &transform,
-                        const Frame &measurement, DepthMat *estimate) const;
+                        Frame &measurement, DepthMat& estimate) const;
 
-  void Project(const ProjectivePoint &ppt, Point *pt) const;
-  void Project(const Point &pt, ProjectivePoint *ppt) const;
+  //! transform is applied to the map, then projected into a depth index.
+  //! The best depth estimate from the map corresponding to the measurement
+  //depth frame
+  //! will be returned.
+  void EstimateDepthFromPlanarPattern(const Eigen::Vector4d& target_plane,
+                         Frame &measurement, DepthMat& estimate) const;
+
+  ProjectivePoint Project(const Point& pt) const;
+  Point UnProject(const ProjectivePoint &ppt) const;
 
   bool Initialized() const;
   std::string Status(const std::string &prefix = "") const;
+
+  slick::PoliCamera<double>& poli_cam() { return poli_cam_; }
+  const slick::PoliCamera<double>& poli_cam() const { return poli_cam_; }
+
+  int width() const { return poli_cam_.ImageSize()[0]; }
+  int height() const { return poli_cam_.ImageSize()[1]; }
 
 protected:
   bool ConeFit(const DepthMat &naive_mapdepth, const RangeIndex &rindex, int uc,
                int vc, double radius, double measurement_depth, double *mean,
                double *stdev) const;
 
+
+  slick::PoliCamera<double> poli_cam_;
 public:
   // for serialization
   template <class Archive>

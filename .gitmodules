@@ -1,6 +1,6 @@
-[submodule "external/eigen-3.2.1"]
-	path = external/eigen-3.2.1
-	url = https://github.com/williammc/Eigen.git
 [submodule "external/cmaker"]
 	path = external/cmaker
 	url = https://github.com/williammc/cmaker.git
+[submodule "external/slick"]
+	path = external/slick
+	url = git@gitlab.icg.tugraz.at:thanh.nguyen/slick.git

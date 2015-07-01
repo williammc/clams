@@ -14,7 +14,6 @@
 
 namespace clams {
 
-
 void CalibPattern::GenWorldpoints() {
   if (type == Type::ASYM_DOT_BOARD) {
     double offset = 0;
@@ -25,8 +24,7 @@ void CalibPattern::GenWorldpoints() {
         offset = 0;
 
       for (size_t x = 0; x < size.width; x++) {
-        Eigen::Vector3d v3World(x * cell_unit - offset,
-                                y * cell_unit, 0.0f);
+        Eigen::Vector3d v3World(x * cell_unit - offset, y * cell_unit, 0.0f);
         worldpoints.push_back(v3World);
       }
     }
@@ -41,30 +39,17 @@ void CalibPattern::GenWorldpoints() {
   plane << 0, 0, 1, 0; // z=0 plane
 }
 
-/// Get reprojection errors (store in a list)
-/// @param  ms  IN  list of CenterLocPairVec-s
-/// @param  poses IN  camera pose (estimated)
-/// @param  cm  IN  camera model
-/// @param  v IN/OUT  list of errors
-/// @return a pair of sum square error & Max square error
 template <class CameraModel>
-inline std::pair<double, double> get_reprojection_error(
-    const std::vector<CenterLocPairVec> &ms,
-    const std::vector<slick::SE3d> &poses, CameraModel &cm,
-    std::vector<std::pair<Eigen::Vector2d, Eigen::Vector2d>> &v) {
-  double error = 0, maxError = 0;
-  for (size_t i = 0; i < ms.size(); ++i) {
-    for (size_t j = 0; j < ms[i].size(); ++j) {
-      Eigen::Vector3d camFrame = slick::project(poses[i] * ms[i][j].first);
-      Eigen::Vector2d im = cm.Project(slick::project(camFrame));
-      Eigen::Vector2d err = ms[i][j].second - im;
-      v.push_back(std::make_pair(im, err));
-      double thisError = err.squaredNorm();
-      maxError = std::max(maxError, thisError);
-      error += thisError;
-    }
+inline double get_reprojection_error(const CenterLocPairVec &measurements,
+                                     const slick::SE3d &pose,
+                                     const CameraModel &cm) {
+  double error = 0;
+  for (size_t i = 0; i < measurements.size(); ++i) {
+    Eigen::Vector3d vcam = slick::project(pose * measurements[i].first);
+    Eigen::Vector2d loc = cm.Project(slick::project(vcam));
+    error += (measurements[i].second - loc).squaredNorm();
   }
-  return std::make_pair(error, maxError);
+  return error;
 }
 
 /// Get reprojection error
@@ -75,7 +60,7 @@ template <class CameraModel>
 inline double
 get_reprojection_error(const std::vector<CenterLocPairVec> &measurementss,
                        const std::vector<slick::SE3d> &poses,
-                       CameraModel &cm) {
+                       const CameraModel &cm) {
   double error = 0;
   for (size_t i = 0; i < measurementss.size(); ++i) {
     for (size_t j = 0; j < measurementss[i].size(); ++j) {
@@ -92,12 +77,13 @@ get_reprojection_error(const std::vector<CenterLocPairVec> &measurementss,
 /// @param  measurements IN list of measurements
 /// @param  poses  IN  list of camera pose
 /// @param  cm
-/// @param  mCov  IN/OUT covariant matrix
+/// @param  covariance  IN/OUT covariant matrix
 template <class CameraModel>
-inline void get_uncertainty(
-    const std::vector<CenterLocPairVec> &measurements,
-    const std::vector<slick::SE3d> &poses, CameraModel &cm,
-    Eigen::Matrix<double, CameraModel::param_n_, CameraModel::param_n_> &mCov) {
+inline Eigen::Matrix<double, CameraModel::param_n_, CameraModel::param_n_>
+get_uncertainty(const std::vector<CenterLocPairVec> &measurements,
+                const std::vector<slick::SE3d> &poses, const CameraModel &cm) {
+  Eigen::Matrix<double, CameraModel::param_n_, CameraModel::param_n_>
+      covariance;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> JTJ(
       CameraModel::param_n_ + measurements.size() * 6,
       CameraModel::param_n_ + measurements.size() * 6);
@@ -141,17 +127,16 @@ inline void get_uncertainty(
     v[i] = 1;
     Eigen::Matrix<double, Eigen::Dynamic, 1> Cv = chol.solve(v);
     v[i] = 0;
-    mCov.col(i) = Cv.template segment<CameraModel::param_n_>(0);
+    covariance.col(i) = Cv.template segment<CameraModel::param_n_>(0);
   }
+  return covariance;
 }
-
 
 /// Can track checkerboard, symmetric/asymmetric dots pattern
 template <typename CameraModel>
 bool TrackCalibPattern(const CameraModel &cam, const cv::Mat &gray,
-                              cv::Mat &color_img,
-                              CenterLocPairVec &out_measurments,
-                              slick::SE3d &pose, const CalibPattern& pattern) {
+                       cv::Mat &color_img, CenterLocPairVec &out_measurments,
+                       slick::SE3d &pose, const CalibPattern &pattern) {
   cv::SimpleBlobDetector::Params params;
   params.thresholdStep = 10;
   params.minThreshold = 50;
@@ -214,7 +199,7 @@ bool TrackCalibPattern(const CameraModel &cam, const cv::Mat &gray,
   if (found) {
     cv::Mat m_corners(1, corners.size(), CV_32FC2, &corners[0]);
 
-#if 1
+#if 0
     cv::Mat cimg = color_img.clone();
     cv::drawChessboardCorners(cimg, pattern.size, m_corners, found);
     cv::imshow("Tracked pattern", cimg);
@@ -225,21 +210,21 @@ bool TrackCalibPattern(const CameraModel &cam, const cv::Mat &gray,
     for (size_t i = 0; i < pattern.worldpoints.size(); i++) {
       const Eigen::Vector2d loc(corners[i].x, corners[i].y);
       // unproject 2D(u,v) image points to camera plane z=1
-      Eigen::Vector2d v2_unprojected =
-          cam.UnProject(loc);
-      observations.push_back(
-          std::make_pair(slick::unproject(pattern.worldpoints[i]), v2_unprojected));
+      Eigen::Vector2d v2_unprojected = cam.UnProject(loc);
+      observations.push_back(std::make_pair(
+          slick::unproject(pattern.worldpoints[i]), v2_unprojected));
       out_measurments.push_back(
-        std::make_pair(slick::unproject(pattern.worldpoints[i]), loc));
+          std::make_pair(slick::unproject(pattern.worldpoints[i]), loc));
     }
     auto const pair_re = FindBestPose2Steps(observations);
     pose = pair_re.first;
-
-    if (0) {
-      printf("==================================================\n");
-      printf("FindBestPose2Steps error:%.10f\n", pair_re.second);
-      printf("==================================================\n");
-    }
+    double avgerror = get_reprojection_error(out_measurments, pose, cam) /
+                      out_measurments.size();
+    printf("==================================================\n");
+    printf("FindBestPose2Steps reprojection error:%.10f with pose:\n",
+           avgerror);
+    std::cout << pose << std::endl;
+    printf("==================================================\n");
   }
   return found;
 }
@@ -250,70 +235,165 @@ bool TrackCalibPattern(const CameraModel &cam, const cv::Mat &gray,
 /// @param  poses IN/OUT list of camera poses (estimated)
 /// @param  cm
 /// @param  dlamda  IN/OUT lamda in LM algorithm
-template <class CameraModel>
-inline void
-do_step_lm_camera_pose(std::vector<CenterLocPairVec> &measurements,
-                       std::vector<slick::SE3d> &poses,
-                       CameraModel &cm, double dLambda) {
-  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> JTJ(
-      CameraModel::param_n_ + measurements.size() * 6,
-      CameraModel::param_n_ + measurements.size() * 6);
-  Eigen::Matrix<double, Eigen::Dynamic, 1> JTe(JTJ.rows());
+struct LMStepStats {
+  enum struct Result : int { GOOD, BAD, FAIL } result;
+  enum struct StopReason : int {
+    LARGE_LAMBDA,
+    EXCEED_ITERATION,
+    SMALL_DELTA,
+    NAN_PARAMS
+  } stop;
+  double avgerror;
+  int number_interations;
 
-  JTJ.setZero();
-  Eigen::Matrix<double, CameraModel::param_n_, 1> JTep =
-      Eigen::Matrix<double, CameraModel::param_n_, 1>::Zero();
-
-  for (size_t i = 0; i < measurements.size(); ++i) {
-    Eigen::Matrix<double, 6, 6> poseBlock = Eigen::Matrix<double, 6, 6>::Zero();
-    Eigen::Matrix<double, CameraModel::param_n_, CameraModel::param_n_>
-        paramBlock = Eigen::Matrix<double, CameraModel::param_n_,
-                                   CameraModel::param_n_>::Zero();
-    Eigen::Matrix<double, CameraModel::param_n_, 6> offDiag =
-        Eigen::Matrix<double, CameraModel::param_n_, 6>::Zero();
-
-    Eigen::Matrix<double, 6, 1> JTei = Eigen::Matrix<double, 6, 1>::Zero();
-
-    for (size_t j = 0; j < measurements[i].size(); j++) {
-      Eigen::Vector3d camFrame = slick::project(
-          poses[i] * slick::unproject(measurements[i][j].first));
-      Eigen::Matrix<double, 2, 6> J_pose;
-      Eigen::Vector2d v =
-          measurements[i][j].second -
-          cm.Project(transform_and_project(
-              poses[i], slick::unproject(measurements[i][j].first), J_pose));
-      J_pose = cm.GetProjectionDerivatives(slick::project(camFrame)) * J_pose;
-      Eigen::Matrix<double, 2, CameraModel::param_n_> J_param =
-          cm.GetParameterDerivs(slick::project(camFrame));
-      poseBlock += J_pose.transpose() * J_pose;
-      paramBlock += J_param.transpose() * J_param;
-      offDiag += J_param.transpose() * J_pose;
-      JTei += J_pose.transpose() * v;
-      JTep += J_param.transpose() * v;
+  static std::string to_string(Result res) {
+    switch (res) {
+    case Result::GOOD:
+      return "Result GOOD";
+    case Result::BAD:
+      return "Result BAD";
+    case Result::FAIL:
+      return "Result FAIL";
     }
-    JTe.template segment<6>(CameraModel::param_n_ + i * 6) = JTei;
-    JTJ.block(CameraModel::param_n_ + i * 6, CameraModel::param_n_ + i * 6, 6,
-              6) = poseBlock;
-    JTJ.block(0, 0, CameraModel::param_n_, CameraModel::param_n_) += paramBlock;
-    JTJ.block(0, CameraModel::param_n_ + i * 6, CameraModel::param_n_, 6) =
-        offDiag;
-    JTJ.block(CameraModel::param_n_ + i * 6, 0, 6, CameraModel::param_n_) =
-        offDiag.transpose();
+    return "Result UNKNOWN";
   }
-  JTe.template segment<CameraModel::param_n_>(0) = JTep;
 
-  for (int i = 0; i < JTJ.rows(); ++i)
-    JTJ(i, i) += dLambda;
-  Eigen::LLT<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>> chol(JTJ);
-  Eigen::Matrix<double, Eigen::Dynamic, 1> delta = chol.solve(JTe);
-  Eigen::Matrix<double, CameraModel::param_n_, 1> v6 =
-      cm.parameters() + delta.template segment<CameraModel::param_n_>(0);
-  cm.SetParameters(v6);
-  for (size_t i = 0; i < poses.size(); ++i) {
-    poses[i] = slick::SE3d::exp(
-                   delta.segment(CameraModel::param_n_ + i * 6, 6)) *
-               poses[i];
+  static std::string to_string(StopReason res) {
+    switch (res) {
+    case StopReason::LARGE_LAMBDA:
+      return "StopReason LARGE_LAMBDA";
+    case StopReason::EXCEED_ITERATION:
+      return "StopReason EXCEED_ITERATION";
+    case StopReason::SMALL_DELTA:
+      return "StopReason SMALL_DELTA";
+    case StopReason::NAN_PARAMS:
+      return "StopReason NAN_PARAMS";
+    }
+    return "StopReason UNKNOWN";
   }
+};
+
+template <class CameraModel>
+inline LMStepStats
+do_step_lm_camera_pose(std::vector<CenterLocPairVec> &measurements,
+                       std::vector<slick::SE3d> &poses, CameraModel &cm) {
+  size_t npoints = 0;
+  for (size_t i = 0; i < measurements.size(); i++)
+    npoints += measurements[i].size();
+
+  // store current state
+  auto old_params = cm.parameters();
+  auto old_poses = poses;
+  const double pre_avgerror =
+      get_reprojection_error(measurements, poses, cm) / npoints;
+
+  bool good_lm_step = false;
+  int count = 0;
+
+  float lambda = 1.0f;
+  LMStepStats stats;
+  stats.avgerror = pre_avgerror;
+  stats.number_interations = 0;
+  while (!good_lm_step && stats.number_interations < 10 && lambda < 1.e+10) {
+    stats.number_interations++;
+    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> JTJ(
+        CameraModel::param_n_ + measurements.size() * 6,
+        CameraModel::param_n_ + measurements.size() * 6);
+    Eigen::Matrix<double, Eigen::Dynamic, 1> JTe(JTJ.rows());
+
+    JTJ.setZero();
+    Eigen::Matrix<double, CameraModel::param_n_, 1> JTep =
+        Eigen::Matrix<double, CameraModel::param_n_, 1>::Zero();
+
+    for (size_t i = 0; i < measurements.size(); ++i) {
+      Eigen::Matrix<double, 6, 6> poseBlock =
+          Eigen::Matrix<double, 6, 6>::Zero();
+      Eigen::Matrix<double, CameraModel::param_n_, CameraModel::param_n_>
+          paramBlock = Eigen::Matrix<double, CameraModel::param_n_,
+                                     CameraModel::param_n_>::Zero();
+      Eigen::Matrix<double, CameraModel::param_n_, 6> offDiag =
+          Eigen::Matrix<double, CameraModel::param_n_, 6>::Zero();
+
+      Eigen::Matrix<double, 6, 1> JTei = Eigen::Matrix<double, 6, 1>::Zero();
+
+      for (size_t j = 0; j < measurements[i].size(); j++) {
+        Eigen::Vector3d camFrame =
+            poses[i] * slick::project(measurements[i][j].first);
+        Eigen::Matrix<double, 2, 6> J_pose;
+        Eigen::Vector2d v = measurements[i][j].second -
+                            cm.Project(transform_and_project(
+                                poses[i], measurements[i][j].first, J_pose));
+        J_pose = cm.GetProjectionDerivatives(slick::project(camFrame)) * J_pose;
+        Eigen::Matrix<double, 2, CameraModel::param_n_> J_param =
+            cm.GetParameterDerivs(slick::project(camFrame));
+        poseBlock += J_pose.transpose() * J_pose;
+        paramBlock += J_param.transpose() * J_param;
+        offDiag += J_param.transpose() * J_pose;
+        JTei += J_pose.transpose() * v;
+        JTep += J_param.transpose() * v;
+      }
+      JTe.template segment<6>(CameraModel::param_n_ + i * 6) = JTei;
+      JTJ.block(CameraModel::param_n_ + i * 6, CameraModel::param_n_ + i * 6, 6,
+                6) = poseBlock;
+      JTJ.block(0, 0, CameraModel::param_n_, CameraModel::param_n_) +=
+          paramBlock;
+      JTJ.block(0, CameraModel::param_n_ + i * 6, CameraModel::param_n_, 6) =
+          offDiag;
+      JTJ.block(CameraModel::param_n_ + i * 6, 0, 6, CameraModel::param_n_) =
+          offDiag.transpose();
+    }
+    JTe.template segment<CameraModel::param_n_>(0) = JTep;
+
+    for (int i = 0; i < JTJ.rows(); ++i)
+      JTJ(i, i) += lambda;
+    Eigen::LDLT<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>> chol(
+        JTJ);
+    Eigen::Matrix<double, Eigen::Dynamic, 1> delta = chol.solve(JTe);
+    Eigen::Matrix<double, CameraModel::param_n_, 1> v6 =
+        cm.parameters() + delta.template segment<CameraModel::param_n_>(0);
+    cm.SetParameters(v6);
+    for (size_t i = 0; i < poses.size(); ++i) {
+      poses[i] =
+          slick::SE3d::exp(delta.segment(CameraModel::param_n_ + i * 6, 6)) *
+          poses[i];
+    }
+
+    stats.avgerror = get_reprojection_error(measurements, poses, cm) / npoints;
+
+    printf("lambda:%f, error:%f\n", lambda, stats.avgerror);
+    std::cout << "cam_params:" << cm.parameters().transpose() << "\n";
+
+    if (std::isnan(stats.avgerror)) {
+      stats.stop = LMStepStats::StopReason::NAN_PARAMS;
+      stats.result = LMStepStats::Result::FAIL;
+      return stats;
+    }
+
+    if (delta.norm() < 1.e-9) {
+      stats.stop = LMStepStats::StopReason::SMALL_DELTA;
+      break;
+    }
+    if (stats.avgerror < pre_avgerror) {
+      good_lm_step = true;
+      lambda = (lambda < 0.2f) ? 0.0f : lambda * 0.5f;
+      old_poses = poses;
+      old_params = cm.parameters();
+    } else {
+      lambda = (lambda == 0.0f) ? 0.2f : lambda * 10.0f;
+      poses = old_poses;
+      cm.SetParameters(old_params);
+    }
+
+  } // main loop
+  if (lambda >= 1.e+10)
+    stats.stop = LMStepStats::StopReason::LARGE_LAMBDA;
+  else if (stats.number_interations >= 10)
+    stats.stop = LMStepStats::StopReason::EXCEED_ITERATION;
+
+  stats.result =
+      (good_lm_step) ? LMStepStats::Result::GOOD : LMStepStats::Result::BAD;
+
+  return stats;
 }
 
 /// Calculate camera parameter based on captured measurements(3D world position
@@ -322,12 +402,10 @@ do_step_lm_camera_pose(std::vector<CenterLocPairVec> &measurements,
 /// @param  vPoses[in]  list of camera poses
 /// @param  cameraModel[in]  camera model
 template <class CameraModel>
-int RunCalibration(std::vector<CenterLocPairVec> &measurements,
-                          std::vector<slick::SE3d> poses, CameraModel &cam,
-                          double &reprojection_error) {
-  size_t nmeas = 0;
-  for (size_t i = 0; i < measurements.size(); i++)
-    nmeas += measurements[i].size();
+bool RunCalibration(std::vector<CenterLocPairVec> &measurements,
+                    std::vector<slick::SE3d> poses, CameraModel &cam,
+                    double &reprojection_error, 
+                    unsigned max_iter) {
   size_t npoints = 0;
   for (size_t i = 0; i < measurements.size(); i++)
     npoints += measurements[i].size();
@@ -341,34 +419,22 @@ int RunCalibration(std::vector<CenterLocPairVec> &measurements,
             << std::endl;
 
   std::cerr << "Optimizing with Levenberg-Marquardt..." << std::endl;
-  double lambda = 1;
-  size_t i = 0;
-  while (lambda < 1e12 && i < 50) {
-    Eigen::Matrix<double, CameraModel::param_n_, 1> params = cam.parameters();
-    std::vector<slick::SE3d> vOldPoses = poses;
-    do_step_lm_camera_pose(measurements, poses, cam, lambda);
-    double error = get_reprojection_error(measurements, poses, cam);
-    if (fabs(min_error - error) > 1e-19) {
-      min_error = error;
-      lambda *= 0.5;
-      std::cerr << "rms reprojection error = " << sqrt(min_error / npoints)
-                << " pixels" << std::endl;
-    } else {
-      poses = vOldPoses;
-      cam.SetParameters(params);
-      lambda *= 10;
-    }
-    i++;
+  for (int iter = 0; iter < max_iter; ++iter) {
+    auto res = do_step_lm_camera_pose(measurements, poses, cam);
+    printf("LM step result:%s stop reason:%s avgerror:%f\n",
+           LMStepStats::to_string(res.result).c_str(),
+           LMStepStats::to_string(res.stop).c_str(), res.avgerror);
+    if (res.result == LMStepStats::Result::FAIL)
+      return false;
+    if (res.stop == LMStepStats::StopReason::SMALL_DELTA)
+      break;
   }
 
-  std::vector<std::pair<Eigen::Vector2d, Eigen::Vector2d>> vErrors;
-  std::pair<double, double> pError =
-      get_reprojection_error(measurements, poses, cam, vErrors);
+  double reproj_error = get_reprojection_error(measurements, poses, cam);
 
-#ifndef WIN32
   std::cerr << "Estimating uncertainty..." << std::endl;
   Eigen::Matrix<double, CameraModel::param_n_, CameraModel::param_n_> Cov;
-  get_uncertainty(measurements, poses, cam, Cov);
+  Cov = get_uncertainty(measurements, poses, cam);
   static const int NumRadialParams = CameraModel::param_n_ - 4;
   Cov.block(4, 4, NumRadialParams, NumRadialParams) *= factor * factor;
   Cov.block(0, 4, 4, NumRadialParams) *= factor;
@@ -383,20 +449,14 @@ int RunCalibration(std::vector<CenterLocPairVec> &measurements,
   std::cout << "Three sigma uncertainties: " << std::endl;
   std::cout << uncertainty << std::endl << std::endl;
 
-#endif
-
-  size_t numPoints = 0;
-  for (size_t i = 0; i < measurements.size(); i++)
-    numPoints += measurements[i].size();
-
-  reprojection_error = sqrt(pError.first / npoints);
+  reprojection_error = std::sqrt(reproj_error / npoints);
 
   std::cout.precision(14);
-  std::cout << sqrt(pError.first / npoints)
+  std::cout << sqrt(reproj_error / npoints)
             << " pixels average reprojection error" << std::endl;
   std::cout << "Parameters:" << std::endl;
   std::cout << cam.parameters() << std::endl << std::endl;
-  return 1;
+  return true;
 }
 
 // instantiate =================================================================
@@ -404,4 +464,8 @@ template bool TrackCalibPattern(const slick::PoliCamera<double> &cam,
                                 const cv::Mat &gray, cv::Mat &color_img,
                                 CenterLocPairVec &out_meas, slick::SE3d &pose,
                                 const CalibPattern &pattern);
+template bool RunCalibration(std::vector<CenterLocPairVec> &measurements,
+                             std::vector<slick::SE3d> poses,
+                             slick::PoliCamera<double> &cam,
+                             double &reprojection_error, unsigned max_iter);
 } // namespace clams

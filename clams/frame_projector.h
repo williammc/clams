@@ -37,6 +37,7 @@ struct Frame {
   Frame() {
     prefix = "clams-frame";
     timestamp = 0.0;
+    depth_offset = 0;
   }
 
   void FilterFringe();
@@ -50,9 +51,9 @@ public:
   double timestamp;
   cv::Mat3b img;
   cv::Mat_<uint16_t> depth;
+  float depth_offset; /// milimeters, average depth offset to calibration target
   CenterLocPairVec measurements; // world_point-pixel_location pairs
 
-  // conventional data
   slick::SE3d target2cam; // calibration target to camera pose
   Eigen::Vector4d target_plane; // in camera coordinate
 
@@ -70,7 +71,8 @@ public:
   // For storing z values in meters.  This is not Euclidean distance.
   using RangeIndex = std::vector<std::vector<std::vector<double>>>;
   using IndexMap = Eigen::Matrix<size_t, Eigen::Dynamic, Eigen::Dynamic>;
-
+  
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   FrameProjector();
 
   void ReestimatePoseAndPlane(Frame &frame,
@@ -96,6 +98,8 @@ public:
   //! will be returned.
   void EstimateDepthFromPlanarPattern(const Eigen::Vector4d& target_plane,
                          Frame &measurement, DepthMat& estimate) const;
+
+  std::vector<float> EstimateDepthOffsets(Frame &measurement) const;
 
   ProjectivePoint Project(const Point& pt) const;
   Point UnProject(const ProjectivePoint &ppt) const;

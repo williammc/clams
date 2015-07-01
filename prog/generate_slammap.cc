@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
     printf("Bad camera parameters input\n");
     badargs = true;
   }
-  std::array<float, 9> cam;
+  std::array<float, 9> cam{640, 480, 525, 525, 319.5, 239.5, 0, 0, 0};
   for (int i = 0; i < std::min(9, int(cam_params.size())); ++i)
     cam[i] = cam_params[i];
 
@@ -70,6 +70,8 @@ int main(int argc, char **argv) {
     std::cout << opts_desc << std::endl;
     return 1;
   }
+
+  traj_file = (traj_file.length() > 3) ? traj_file : "";
 
   clams::SlamMap slammap;
   if (bfs::exists(slammap_file)) {
@@ -85,9 +87,11 @@ int main(int argc, char **argv) {
 
   std::cout << "Building map from " << std::endl;
   std::cout << "  " << slammap_file << std::endl;
- 
-  clams::Cloud::Ptr map = slammap.GeneratePointcloud(max_range, resolution);
   
-  std::cout << "Saving to " << cloud_file << std::endl;
-  pcl::io::savePCDFileBinary(cloud_file, *map);
+  if (!traj_file.empty()) {
+    clams::Cloud::Ptr map = slammap.GeneratePointcloud(max_range, resolution);
+    
+    std::cout << "Saving to " << cloud_file << std::endl;
+    pcl::io::savePCDFileBinary(cloud_file, *map);
+  }
 }

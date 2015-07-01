@@ -10,6 +10,7 @@ data_path_prefix=E:  # for windows on office PC
 synthetic=1
 # datatype="synthetic"
 datatype="recording"
+datatype="calib"
 if [ -z "${3+set}" ]; then # argument 2 is data_path
   case "$datatype" in
   # if [ $synthetic -eq 1 ]; then
@@ -42,7 +43,7 @@ if [ -z "${3+set}" ]; then # argument 2 is data_path
 
     # data_path=$prefix/office-10 # good
 
-    data_path=$prefix/boxes-1 # good for segmentation
+    # data_path=$prefix/boxes-1 # good for segmentation
     # data_path=$prefix/boxes-2
 
     # # data_path=$prefix/kinect-white-boxes-1 # not good
@@ -62,7 +63,13 @@ if [ -z "${3+set}" ]; then # argument 2 is data_path
     # kinect camera
     camera=" -c 529.21508098293293 -c 525.56393630057437 -c 328.94272028759258 -c 267.48068171871557 "
     # record_nframes=500 # stair case
+  ;;
 
+  "calib")
+    prefix=$data_path_prefix/data/depth_calib/primesense
+
+    data_path=$prefix/dots-1
+    filename=kinect_recorder
   ;;
   esac
 else
@@ -86,7 +93,7 @@ case "$1" in
   generate_slammap --cam_params 640 --cam_params 480 --cam_params 525 --cam_params 525 \
   --cam_params 319.5 --cam_params 239.5 \
   --rec $data_path/$filename.txt \
-  --traj_file  $data_path/oslam/oslam.txt \
+  --traj_file "1" \
   --slammap_file $data_path/clams/clams-slammap.bin \
   --pointcloud $data_path/clams/clams-cloud.pcd \
   --resolution 0.01 --max_range 2.0 --skip_poses 20
@@ -98,7 +105,8 @@ case "$1" in
   ;;
 
 "calib")
-  calibrate --increment 3 --workspace $prefix
+  calibrate --increment 1 --workspace $prefix \
+  --calib_params 1 --calib_params 5 --calib_params 4 --calib_params 0.068
   ;;
 
 "vis-mo")

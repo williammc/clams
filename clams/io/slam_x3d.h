@@ -88,8 +88,6 @@ inline void write_slammap(const SlamMap& slmap, std::string file) {
 
   // write footer
   write_footer(slm_ofs);
-
-  slm_ofs.close();
 }
 
 

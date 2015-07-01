@@ -1,3 +1,4 @@
+#include <fstream>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <pcl/filters/voxel_grid.h>
@@ -21,8 +22,8 @@ int main(int argc, char **argv) {
   ("increment", bpo::value<int>()->default_value(1),
                           "Use every kth frame for calibration.")
   ("calib_params", bpo::value(&calib_params)->required(),
-                          "Calibration target params (type, width, height, cell_unit.\n"
-                            "type (0:CHECKER_BOARD, 1:DOT_BOARD, 2:ASYM_DOT_BOARD)");
+                  "Calibration target params (type, width, height, cell_unit.\n"
+                    "type (0:CHECKER_BOARD, 1:DOT_BOARD, 2:ASYM_DOT_BOARD)");
 
   p.add("workspace", 1);
 
@@ -48,7 +49,9 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  clams::SlamCalibratorPtr calibrator(new clams::SlamCalibrator());
+  clams::FrameProjector proj;
+
+  clams::SlamCalibratorPtr calibrator(new clams::SlamCalibrator(proj));
 
   // -- Get names of sequences that have corresponding results.
   std::vector<std::string> haveclams_folders;
@@ -70,19 +73,21 @@ int main(int argc, char **argv) {
   for (size_t i = 0; i < haveclams_folders.size(); ++i) {
     std::string prefix = workspace + "/" + haveclams_folders[i] + "/clams";
     std::string slammap_path =  prefix + "/clams-slammap.bin";
-    std::string cloud_path = prefix + "/clams-cloud.pcd";
 
-    std::cout << "Sequence " << i << std::endl;
-    std::cout << "  SlamMap:" << slammap_path << std::endl;
-    std::cout << "  Map: " << cloud_path << std::endl;
+    printf("Sequence %u\n", i);
+    printf("Load SlamMap from (%s)\n", slammap_path.c_str());
 
     clams::SlamMap slammap;
     slammap.Load(slammap_path);
     calibrator->slam_maps().push_back(slammap);
 
-    clams::Cloud::Ptr map(new clams::Cloud);
-    pcl::io::loadPCDFile<pcl::PointXYZRGB>(cloud_path, *map);
-    calibrator->slam_maps().back().pointcloud(map);
+    std::string cloud_path = prefix + "/clams-cloud.pcd";
+    if (bfs::exists(cloud_path)) {
+      printf("Load map pointcloud from (%s)\n", cloud_path.c_str());
+      clams::Cloud::Ptr map(new clams::Cloud);
+      pcl::io::loadPCDFile<pcl::PointXYZRGB>(cloud_path, *map);
+      calibrator->slam_maps().back().pointcloud(map);
+    }
   }
 
   // -- Run the calibrator.
@@ -103,13 +108,28 @@ int main(int argc, char **argv) {
   }
   std::cout << std::endl;
 
-  clams::DiscreteDepthDistortionModel model = calibrator->Calibrate();
-  std::string output_path = workspace + "/clams/distortion_model.bin";
-  model.save(output_path);
-  std::cout << "Saved distortion model to " << output_path << std::endl;
+  if (calibrator->Calibrate()) {
+    clams::DiscreteDepthDistortionModel model = calibrator->depth_model();
+    std::string output_path = workspace + "/clams/distortion_model.bin";
+    printf("Save distortion model to %s\n", output_path.c_str());
+    model.save(output_path);
 
-  // std::string vis_dir = output_path + "-visualization";
-  // model.visualize(vis_dir);
-  // std::cout << "Saved visualization of distortion model to " << vis_dir
-  //           << std::endl;
+    std::array<float, 9> cam{640, 480, 525, 525, 319.5, 239.5, 0, 0, 0};
+    auto params = calibrator->camera_model().parameters();
+    cam[0] = calibrator->camera_model().ImageSize()[0];
+    cam[1] = calibrator->camera_model().ImageSize()[1];
+    for (int i = 0; i < 6; ++i)
+      cam[i+2] = params[i];
+
+    output_path = workspace + "/clams/camera.txt";
+    printf("Save camera model to %s\n", output_path.c_str());
+    std::ofstream ofs(output_path);
+    ofs << "# camera parameters (width, height, fx, fy, cx, cy, k1, k2, k3)\n";
+    for (int i = 0; i < 9; ++i)
+      ofs << cam[i] << " ";
+    ofs << "\n";
+
+  } else {
+    printf("No luck!!! calibration failed!!!\n");
+  }
 }

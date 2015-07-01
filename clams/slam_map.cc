@@ -208,6 +208,13 @@ void SlamMap::ReadFrameInTrajectory(size_t idx, Frame& frame) const {
           frame.depth(y, x) = 0;
 }
 
+void SlamMap::WriteFrameInTrajectory(size_t idx, const Frame& frame) const {
+  assert(idx < traj_associate_frames_.size());
+  idx = traj_associate_frames_[idx];
+  std::string fn = working_path_ + "/" + rec_timeframes_[idx].second;
+  SerializeToFile(fn, frame);
+}
+
 size_t SlamMap::SeekInFrames(double timestamp, double *dt) const {
   assert(!rec_timeframes_.empty());
 
@@ -242,6 +249,16 @@ size_t SlamMap::SeekInTrajectory(double timestamp, double *dt) const {
   return nearest;
 }
 
+bool SlamMap::ExistsTrackedCalibPattern() const {
+  for (int i = 0; i < traj_timeposes_.size(); ++i) {
+    Frame fr;
+    ReadFrameInTrajectory(0, fr);
+    if (!fr.measurements.empty())
+      return true;
+  }
+  return false;
+}
+
 template <class Archive>
 void SlamMap::serialize(Archive &ar, const unsigned int version) {
   ar& rec_file_;
@@ -250,7 +267,9 @@ void SlamMap::serialize(Archive &ar, const unsigned int version) {
   ar& undistorted_;
   ar& proj_;
   ar& rec_timeframes_;
-  // ar& traj_timeposes_;
+#if 0
+  ar& traj_timeposes_;
+#else
   int len = traj_timeposes_.size();
   ar& len;
   if (Archive::is_loading::value) {
@@ -260,6 +279,7 @@ void SlamMap::serialize(Archive &ar, const unsigned int version) {
     ar& traj_timeposes_[i].first;
     ar& traj_timeposes_[i].second;
   }
+#endif
   ar& traj_associate_frames_;
 }
 

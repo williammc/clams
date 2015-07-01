@@ -49,6 +49,7 @@ struct SlamMap {
   void pointcloud(Cloud::Ptr cl) { pointcloud_ = cl; }
 
   TimePosePairVec traj_timeposes() const { return traj_timeposes_; }
+  TimeFramePairVec rec_timeframes() const { return rec_timeframes_; }
 
   void ReadFrameInTrajectory(size_t idx, Frame& frame) const;
   Eigen::Affine3d GetPoseInTrajectory(size_t idx) const {
@@ -57,10 +58,13 @@ struct SlamMap {
   //! Returns the nearest frame, no matter how far away it is in time.  Check dt
   //to find out.
   size_t ReadFrameInTrajectory(double timestamp, double *dt, Frame &frame) const;
+  void WriteFrameInTrajectory(size_t idx, const Frame& frame) const;
 
   //! dt is signed.
   size_t SeekInFrames(double timestamp, double *dt) const;
   size_t SeekInTrajectory(double timestamp, double *dt) const;
+
+  bool ExistsTrackedCalibPattern() const;
 
 protected:
   std::string working_path_; ///< path of this SlamMap object
@@ -84,3 +88,5 @@ public:
 };
 
 } // namespace clams
+
+EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(clams::SlamMap)

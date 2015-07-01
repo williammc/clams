@@ -49,16 +49,30 @@ struct CalibPattern {
   float cell_unit;
 
   static Type get_type(std::string pattern_t) {
-    if (pattern_t == "CHECKER_BOARD" || pattern_t == "0") {
+    if (pattern_t.empty()) return Type::UNDEFINE;
+    if (pattern_t == "CHECKER_BOARD" || pattern_t[0] == '0') {
       return Type::CHECKER_BOARD;
-    } else if (pattern_t == "DOT_BOARD" || pattern_t == "1") {
+    } else if (pattern_t == "DOT_BOARD" || pattern_t[0] == '1') {
       return Type::DOT_BOARD;
-    } else if (pattern_t == "ASYM_DOT_BOARD" || pattern_t == "2") {
+    } else if (pattern_t == "ASYM_DOT_BOARD" || pattern_t[0] == '2') {
       return Type::ASYM_DOT_BOARD;
     }
 
     printf("Only support these pattern types: CHECKER_BOARD, DOT_BOARD, ASYM_DOT_BOARD \n");
     return Type::UNDEFINE;
+  }
+
+  static std::string to_string(Type t) {
+    switch (t) {
+      case Type::CHECKER_BOARD:
+      return "CHECKER_BOARD";
+      case Type::DOT_BOARD:
+      return "DOT_BOARD";
+      case Type::ASYM_DOT_BOARD:
+      return "ASYM_DOT_BOARD";
+      default:
+      return "UNDEFINE";
+    }
   }
 
   std::vector<Eigen::Vector3d> worldpoints; // world coordinates center of pattern centers
@@ -79,7 +93,8 @@ bool TrackCalibPattern(const CameraModel &cam, const cv::Mat &gray,
 /// @param  vPoses[in]  list of camera poses
 /// @param  cameraModel[in]  camera model
 template <class CameraModel>
-int RunCalibration(std::vector<CenterLocPairVec> &measurements,
+bool RunCalibration(std::vector<CenterLocPairVec> &measurements,
                           std::vector<slick::SE3d> poses, CameraModel &cam,
-                          double &reprojection_error);
+                          double &reprojection_error,
+                          unsigned max_iter = 100);
 } // namespace clams

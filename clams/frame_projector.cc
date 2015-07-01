@@ -1,8 +1,10 @@
 #include "clams/frame_projector.h"
+#include <numeric>
 #include "clams/common/clams_macros.h"
 #include "clams/serialization/serialization.h"
 #include "clams/pose_optimization.h"
 #include "clams/plane_util.h"
+#include "clams/io/frame_x3d.h"
 
 namespace clams {
 
@@ -119,6 +121,27 @@ void Frame::serialize(Archive &ar, const unsigned int version) {
     // cv::imshow("depth", DepthImage());
     // cv::waitKey();
   }
+  ar& depth_offset;
+
+#if 0
+  ar& measurements;
+#else
+  int len = measurements.size();
+  ar &len;
+  if (Archive::is_loading::value) {
+    measurements.resize(len);
+  }
+  for (int i = 0; i < measurements.size(); ++i) {
+    ar &measurements[i].first;
+    ar &measurements[i].second;
+  }
+#endif
+  auto pose = to_affine(target2cam);
+  ar& pose;
+  if (Archive::is_loading::value) {
+    target2cam = to_se3(pose);
+  }
+  ar& target_plane;
 }
 
 CLAMS_INSTANTIATE_SERIALIZATION_T(Frame);
@@ -282,8 +305,8 @@ Point FrameProjector::UnProject(const ProjectivePoint &ppt) const {
   } else {
     pt.z = ppt.z * 0.001;
     auto cam = poli_cam_.UnProject(Eigen::Vector2d(ppt.u, ppt.v));
-    pt.x = cam[0];
-    pt.y = cam[1];
+    pt.x = cam[0] * pt.z;
+    pt.y = cam[1] * pt.z;
   }
   return pt;
 }
@@ -377,21 +400,23 @@ struct Neighbor {
 inline void find_connected_component(cv::Point pt, cv::Mat1b in_mask,
                                      cv::Mat1b &out_mask) {
   out_mask = in_mask.clone();
+  return;
   out_mask = 0;
   
-  // find upmost point
-  cv::Point upmost = pt;
+  // find leftmost point
+  cv::Point leftmost = pt;
   while (true) {
-    if (upmost.y <= 0 || in_mask(upmost.y-1, upmost.x) == 0)
+    if (leftmost.x <= 0 || in_mask(leftmost.y, leftmost.x-1) == 0)
       break;
-    upmost.y -= 1;
+    leftmost.x -= 1;
   }
+  printf("leftmost(%d, %d)\n", leftmost.x, leftmost.y);
 
   // scrolling along the outer border to find the bounding polygon of the connected commponent
   std::vector<cv::Point> bder_pixs;
   bder_pixs.reserve(300*300);
 
-  bder_pixs.push_back(upmost);
+  bder_pixs.push_back(leftmost);
 
   // fill lookup table for next points to visit in clockwise order
   std::array<Neighbor, 8> directions = {
@@ -399,12 +424,16 @@ inline void find_connected_component(cv::Point pt, cv::Mat1b in_mask,
       Neighbor(0, -1, -in_mask.cols), Neighbor(1, -1, -in_mask.cols + 1),
       Neighbor(1, 0, 1), Neighbor(1, 1, in_mask.cols + 1),
       Neighbor(0, 1, in_mask.cols), Neighbor(-1, 1, in_mask.cols - 1)};
-  int upmost_idx = upmost.y * in_mask.cols + upmost.x;
-  int curr_idx = upmost_idx;
-  int curr_x = upmost.x;
-  int curr_y = upmost.y;
+  int leftmost_idx = leftmost.y * in_mask.cols + leftmost.x;
+  int curr_idx = leftmost_idx;
+  int curr_x = leftmost.x;
+  int curr_y = leftmost.y;
   int direction = -1;
   int x, y;
+  printf("curr_pts:\n");
+  std::ofstream ofs("polygon.txt");
+  std::set<int> existing_ids;
+  existing_ids.insert(leftmost_idx);
   do {
     unsigned n_idx;
     for (unsigned d_idx = 1; d_idx <= 8; ++d_idx) {
@@ -422,20 +451,39 @@ inline void find_connected_component(cv::Point pt, cv::Mat1b in_mask,
     curr_idx += directions[n_idx].d_index;
     curr_x += directions[n_idx].d_x;
     curr_y += directions[n_idx].d_y;
-    bder_pixs.push_back(cv::Point(curr_idx % in_mask.cols, curr_idx/in_mask.cols));
-  } while (curr_idx != upmost_idx);
+    cv::Point curr_pt(curr_idx % in_mask.cols, curr_idx/in_mask.cols);
+    if (existing_ids.count(curr_idx) == 0)
+      bder_pixs.push_back(curr_pt);
+    existing_ids.insert(curr_idx);
+    ofs << curr_pt.x << " " << curr_pt.y << ";\n";
+  } while (curr_idx != leftmost_idx);
+  ofs.close();
 
   bder_pixs.pop_back(); // last item is also the first one
 
-  cv::fillPoly(out_mask, bder_pixs, cv::Scalar(255));
-
   cv::imshow("in_mask", in_mask);
+  cv::waitKey();
+
+  if (bder_pixs.size() > 100)
+    cv::fillPoly(out_mask, bder_pixs, cv::Scalar(255));
+
   cv::imshow("out_mask", out_mask);
   cv::waitKey();
 }
 
 void FrameProjector::EstimateDepthFromPlanarPattern(const Eigen::Vector4d& target_plane,
                         Frame &measurement, DepthMat& estimate) const {
+
+  auto offsets = EstimateDepthOffsets(measurement);
+  measurement.depth_offset =
+      std::accumulate(offsets.begin(), offsets.end(), 0.0) / offsets.size();
+
+  printf("EstimateDepthFromPlanarPattern()\n");
+  printf("cam params:");
+  auto params = poli_cam_.parameters();
+  for (int i = 0; i < 6; ++i)
+    printf("%f, ", params[i]);
+  printf("\n");
   // -- Reallocate estimate if necessary.
   if (estimate.rows != measurement.depth.rows ||
       estimate.cols != measurement.depth.cols) {
@@ -443,8 +491,21 @@ void FrameProjector::EstimateDepthFromPlanarPattern(const Eigen::Vector4d& targe
   }
   estimate = 0;
 
-  double dist_threshold = 0.02; // 2 cm
+  auto is_on_plane = [](float depth, float gap) -> bool {
+    if (depth < 1)
+      return gap < 0.02;
+    if (depth < 2)
+      return gap < 0.03;
+    if (depth < 3)
+      return gap < 0.035;
+    if (depth < 5)
+      return gap < 0.04;
+    return gap < 0.045;
+  };
 
+  io::x3d::write_frame(measurement, *this);
+
+  double dist_threshold = 0.02; // 2 cm
   Frame& meas = measurement;
   ReestimatePoseAndPlane(meas, target_plane);
   DepthMat est_depth(meas.depth.rows, meas.depth.cols);
@@ -456,7 +517,9 @@ void FrameProjector::EstimateDepthFromPlanarPattern(const Eigen::Vector4d& targe
       if (meas.depth(v, u) == 0) continue;
       const auto cam = slick::unproject(poli_cam_.UnProject(Eigen::Vector2d(u, v)));
       const auto pt = projection(cam, meas.target_plane);
-      if (std::fabs(pt[2] - meas.depth(v, u)*0.001) < dist_threshold) {
+      const float d = pt[2];
+      const float gap = std::fabs(pt[2] - (meas.depth(v, u) + meas.depth_offset)*0.001);
+      if (is_on_plane(d, gap)) {
         estimate(v, u) = pt[2]*1000;
         est_mask(v, u) = 255;
       }
@@ -470,8 +533,11 @@ void FrameProjector::EstimateDepthFromPlanarPattern(const Eigen::Vector4d& targe
       pt.y = t.second[1];
       break;
     }
-  if (pt.x == -1) return;  // cannot find valid depth on the pattern
-
+  if (pt.x == -1) {
+    printf("No valid depths in the calibration pattern region\n");
+    return;  // cannot find valid depth on the pattern
+  }
+  
   cv::Mat1b center_mask;
   find_connected_component(pt, est_mask, center_mask);
   for (int v = 0; v < est_mask.rows; ++v) {
@@ -480,6 +546,21 @@ void FrameProjector::EstimateDepthFromPlanarPattern(const Eigen::Vector4d& targe
         estimate(v, u) = 0;
     }
   }
+}
+
+std::vector<float> FrameProjector::EstimateDepthOffsets(Frame &frame) const {
+  std::vector<float> offsets;
+  if (frame.measurements.empty()) return offsets;
+  for (auto meas : frame.measurements) {
+    auto loc = meas.second;
+    const float d = frame.depth(loc[1], loc[0]);
+    if (d == 0)
+      continue;
+
+    auto pt = frame.target2cam * meas.first;
+    offsets.push_back(pt[2]*1000 - d);
+  }
+  return offsets;
 }
 
 bool FrameProjector::ConeFit(const DepthMat &naive_mapdepth,

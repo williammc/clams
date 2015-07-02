@@ -25,20 +25,19 @@ size_t SlamCalibrator::size() const {
 }
 
 bool SlamCalibrator::Calibrate() {
+  PreparePlanarTargetData();
   CalibrateIntrinsicsNoDepth();
   for (int i = 0; i < 1; ++i) {
     printf("Interation %d ....\n", i);
-    printf("Calibrate depth model:\n");
     CalibrateDepthDistortion();
-    printf("Calibrate camera model:\n");
     CalibrateIntrinsicsUseDepth();
   }
   return true;
 }
 
-bool SlamCalibrator::CalibrateIntrinsicsNoDepth() {
+bool SlamCalibrator::PreparePlanarTargetData() {
   if (pattern_.empty()) return false;
-  printf("Calibrate camera intrinsics with pattern(%s)...\n",
+  printf("PreparePlanarTargetData for calib pattern (%s)...\n",
     CalibPattern::to_string(pattern_.type).c_str());
   // collect measurements
   std::vector<CenterLocPairVec> measurements_vec;
@@ -46,7 +45,7 @@ bool SlamCalibrator::CalibrateIntrinsicsNoDepth() {
 
   size_t img_count = 0, meas_count = 0;
   for (size_t k = 0; k < size(); ++k) {
-    printf("Accumulating training data for sequence %u\n", k);
+    printf("Preparing training data for sequence %u\n", k);
     auto& slammap = slam_maps_[k];
     bool tracked_calib = slammap.ExistsTrackedCalibPattern();
 
@@ -80,6 +79,45 @@ bool SlamCalibrator::CalibrateIntrinsicsNoDepth() {
   }
 
   if (measurements_vec.empty()) return false;
+  printf("Prepared planar target calibration using %d training images with %d "
+         "measurements\n",
+         img_count, meas_count);
+  return true;
+}
+
+bool SlamCalibrator::CalibrateIntrinsicsNoDepth() {
+  if (pattern_.empty()) return false;
+  printf("Calibrate camera intrinsics with pattern(%s)...\n",
+    CalibPattern::to_string(pattern_.type).c_str());
+  // collect measurements
+  std::vector<CenterLocPairVec> measurements_vec;
+  std::vector<slick::SE3d> poses;
+
+  size_t img_count = 0, meas_count = 0;
+  for (size_t k = 0; k < size(); ++k) {
+    printf("Accumulating training data for sequence %u\n", k);
+    auto& slammap = slam_maps_[k];
+
+    for (size_t i = 0; i < slammap.rec_timeframes().size(); ++i) {
+      if ( i % increment_ != 0)
+        continue;
+      std::cout << "." << std::flush;
+
+      Frame measurement;
+      slammap.ReadFrameInTrajectory(i, measurement);
+
+      if (!measurement.measurements.empty()) {
+        measurements_vec.push_back(measurement.measurements);
+        poses.push_back(measurement.target2cam);
+        img_count += 1;
+        meas_count += measurement.measurements.size();
+        printf("target2cam pose of frame-%u:\n", i);
+        std::cout << measurement.target2cam << std::endl;
+      }
+    }
+  }
+
+  if (measurements_vec.empty()) return false;
   printf("Trained new intrinsics calibration using %d training images with %d "
          "measurements\n",
          img_count, meas_count);
@@ -88,11 +126,8 @@ bool SlamCalibrator::CalibrateIntrinsicsNoDepth() {
   return RunCalibration(measurements_vec, poses, proj_.poli_cam(), reproj_error, 10);
 }
 
-bool SlamCalibrator::CalibrateIntrinsicsUseDepth() {
-  return true;
-}
-
 bool SlamCalibrator::CalibrateDepthDistortion() {
+  printf("CalibrateDepthDistortion()\n");
   size_t total_num_training = 0;
   for (size_t i = 0; i < size(); ++i) {
     std::cout << "Accumulating training data for sequence " << i << std::flush;
@@ -110,6 +145,11 @@ bool SlamCalibrator::CalibrateDepthDistortion() {
       total_num_training);
   return true;
 
+}
+
+bool SlamCalibrator::CalibrateIntrinsicsUseDepth() {
+  printf("CalibrateIntrinsicsUseDepth()\n");
+  return true;
 }
 
 size_t SlamCalibrator::ProcessMap(SlamMap& slammap,

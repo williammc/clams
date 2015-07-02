@@ -89,9 +89,20 @@ echo "Case $1"
 
 case "$1" in
 
+"exp-rgbd")
+  input_path=$data_path
+  # input_path=$prefix/20140612-ceiling-1
+  file_prefix=sensor_recorder_000172
+  exp_rgbd \
+  --cam_file E:/Data/depth_calib/primesense/clams \
+  --color_file $input_path/$file_prefix-color.png \
+  --depth_file $input_path/$file_prefix-depth.png
+  ;;
+
+
 "gen")
-  generate_slammap --cam_params 640 --cam_params 480 --cam_params 525 --cam_params 525 \
-  --cam_params 319.5 --cam_params 239.5 \
+  generate_slammap \
+  --cam_file $data_path/camera.txt \
   --rec $data_path/$filename.txt \
   --traj_file "1" \
   --slammap_file $data_path/clams/clams-slammap.bin \

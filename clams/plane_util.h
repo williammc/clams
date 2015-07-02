@@ -1,29 +1,7 @@
 #pragma once
-#include <Eigen/Dense>
-#include <Eigen/Geometry>
-#include "slick/math/se3.h"
+#include "clams/eigen_util.h"
 
 namespace clams {
-
-inline slick::SE3d to_se3(const Eigen::Affine3d& pose) {
-  Eigen::Matrix3d m = pose.matrix().block<3, 3>(0, 0);
-  Eigen::Vector3d t = pose.matrix().block<3, 1>(0, 3);
-  return slick::SE3d(slick::SO3d(m), t);
-}
-
-inline Eigen::Affine3d to_affine(const Eigen::Isometry3d& pose) {
-  Eigen::Affine3d p(pose.rotation());
-  p.translation() = pose.translation();
-
-  return p;
-}
-
-inline Eigen::Affine3d to_affine(const slick::SE3d& pose) {
-  Eigen::Affine3d p(pose.get_rotation().get_matrix());
-  p.translation() = pose.get_translation();
-
-  return p;
-}
 
 /// intersection of ray going through 2D pixel location (@index)
 /// and 3D plane @pln, resulting 3D point

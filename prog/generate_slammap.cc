@@ -2,6 +2,7 @@
 #include <boost/filesystem.hpp>
 #include <pcl/io/pcd_io.h>
 
+#include "clams/cam_calib.h"
 #include "clams/slam_map.h"
 #include "clams/serialization/serialization.h"
 
@@ -12,9 +13,9 @@ int main(int argc, char **argv) {
   bpo::options_description opts_desc("Allowed options");
   bpo::positional_options_description p;
 
+  std::string cam_file;
   std::string rec_file;
   std::string traj_file;
-  std::vector<float> cam_params;
 
   std::string slammap_file;
   std::string cloud_file;
@@ -22,11 +23,9 @@ int main(int argc, char **argv) {
   float resolution;
   unsigned skip_poses;
   opts_desc.add_options()("help,h", "produce help message")
+  ("cam_file", bpo::value(&cam_file)->required(), "Camera config file")
   ("rec", bpo::value(&rec_file)->required(), "Recording file")
   ("traj_file", bpo::value(&traj_file)->required(), "Freiburg trajectory file")
-  
-  ("cam_params", bpo::value(&cam_params), "camera parameters.")
-
   ("slammap_file", bpo::value(&slammap_file)->required(), "StreamSequence")
   ("pointcloud", bpo::value(&cloud_file)->required(),
       "Where to save the output pointcloud.")
@@ -56,13 +55,6 @@ int main(int argc, char **argv) {
   } catch (...) {
     badargs = true;
   }
-  if (cam_params.size() < 6) {
-    printf("Bad camera parameters input\n");
-    badargs = true;
-  }
-  std::array<float, 9> cam{640, 480, 525, 525, 319.5, 239.5, 0, 0, 0};
-  for (int i = 0; i < std::min(9, int(cam_params.size())); ++i)
-    cam[i] = cam_params[i];
 
   if (opts.count("help") || badargs) {
     std::cout << "Usage: " << argv[0] << " [OPTS] REC TRAJ SLAMMAP CLOUD" << std::endl;
@@ -70,6 +62,15 @@ int main(int argc, char **argv) {
     std::cout << opts_desc << std::endl;
     return 1;
   }
+
+  std::array<double, 9> cam{640, 480, 525, 525, 319.5, 239.5, 0, 0, 0};
+  if (!cam_file.empty()) {
+    clams::ReadCamConfig(cam_file, cam);
+  }
+  printf("Camera parameters (width, height, fx, fy, cx, cy, k1, k2, k3):\n");
+  for (int i = 0; i < 9; ++i)
+    printf("%f, ", cam[i]);
+  printf("\n");
 
   traj_file = (traj_file.length() > 3) ? traj_file : "";
 

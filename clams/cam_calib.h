@@ -1,6 +1,7 @@
 // Copyright 2012, 2013, 2014 The Look3D Authors. All rights reserved.
 #pragma once
-
+#include <array>
+#include <fstream>
 #include <iostream>
 #include <Eigen/Core>
 #include <opencv2/calib3d/calib3d.hpp>
@@ -8,6 +9,7 @@
 #include <opencv2/features2d/features2d.hpp>
 
 #include "slick/math/se3.h"
+#include "clams/eigen_util.h"
 
 namespace clams {
 
@@ -79,6 +81,38 @@ struct CalibPattern {
   Eigen::Vector4d plane; // world coordinates plane equation of the target
 };
 
+/// @colorcam: width, height, fx, fy, cx, cy, k1, k2, k3
+inline bool ReadCamConfig(std::string cam_file,
+  std::array<double, 9>& colorcam,
+  std::array<double, 9>* depthcam = nullptr,
+  Eigen::Affine3d* depth2color = nullptr) {
+  colorcam = std::array<double, 9>{640, 480, 525, 525, 319.5, 239.5, 0, 0, 0};
+  std::ifstream ifs(cam_file);
+  if (ifs.fail()) {
+    return false;
+  }
+
+  std::string line, tag;
+  while (std::getline(ifs, line)) {
+    std::istringstream iss(line);
+    iss >> tag;
+    if (tag == "#") {
+      continue;
+    } else if (tag == "COLOR-CAM") {
+      for (int i = 0; i < 9; i++)
+        iss >> colorcam[i];
+    } else if (depthcam && tag == "DEPTH-CAM") {
+      for (int i = 0; i < 9; i++)
+        iss >> (*depthcam)[i];
+    } else if (depth2color && tag == "DEPTH-TO-COLOR") {
+      std::array<double, 7> cam;
+      for (int i = 0; i < 7; i++)
+        iss >> cam[i];
+      *depth2color = to_affine(cam);
+    }
+  }
+  return true;
+}
 
 /// Can track checkerboard, symmetric/asymmetric dots pattern
 template <typename CameraModel>

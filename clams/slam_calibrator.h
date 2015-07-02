@@ -28,6 +28,7 @@ public:
   const DiscreteDepthDistortionModel& depth_model() const { return depth_model_; }
 
 protected:
+  bool PreparePlanarTargetData();  ///< track target and store data
   bool CalibrateIntrinsicsNoDepth(); ///< camera parameters: fx, fy, cx, cy, k1, k2
   bool CalibrateIntrinsicsUseDepth();
   bool CalibrateDepthDistortion(); ///< discrete depth distortion model

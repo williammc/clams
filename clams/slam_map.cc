@@ -34,7 +34,7 @@ inline std::string get_frame_name(const Frame& fr) {
 
 bool SlamMap::LoadTrajectoryAndRecording(std::string traj_file,
                                          std::string rec_file,
-                                         std::array<float, 9> cam_params,
+                                         std::array<double, 9> cam_params,
                                          unsigned skip_poses) {
   
   traj_file_ = traj_file;

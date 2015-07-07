@@ -176,89 +176,8 @@ void DiscreteFrustum::CalcDepthOffsets() {
 
 }
 
-inline int DiscreteFrustum::index(double z) const {
-  return std::min(num_bins_ - 1, (int)std::floor(z / bin_depth_));
-}
-
-inline void DiscreteFrustum::undistort(double *z) const {
-  *z *= multipliers_.coeffRef(index(*z));
-  // *z = *z + depth_offsets_(0);
-}
-
-void DiscreteFrustum::interpolatedUndistort(double *z) const {
-  int idx = index(*z);
-  double start = bin_depth_ * idx;
-  int idx1;
-  if (*z - start < bin_depth_ / 2)
-    idx1 = idx;
-  else
-    idx1 = idx + 1;
-  int idx0 = idx1 - 1;
-  if (idx0 < 0 || idx1 >= num_bins_ 
-      // || counts_(idx0) < 50 || counts_(idx1) < 50
-     ) {
-    undistort(z);
-    return;
-  }
-
-  double z0 = (idx0 + 1) * bin_depth_ - bin_depth_ * 0.5;
-  double coeff1 = (*z - z0) / bin_depth_;
-  double coeff0 = 1.0 - coeff1;
-  double mult = coeff0 * multipliers_.coeffRef(idx0) +
-                coeff1 * multipliers_.coeffRef(idx1);
-  *z *= mult;
-}
-
-template <class Archive>
-void DiscreteFrustum::serialize(Archive &ar, const unsigned int version ) {
-  ar& max_dist_;
-  ar& num_bins_;
-  ar& bin_depth_;
-  ar& counts_;
-  ar& total_numerators_;
-  ar& total_denominators_;
-  ar& multipliers_;
-  ar& depth_offsets_;
-}
-
 // =============================================================================
-DiscreteDepthDistortionModel::DiscreteDepthDistortionModel(
-    int width, int height, int bin_width, int bin_height, double bin_depth,
-    int smoothing)
-    : width_(width), height_(height), bin_width_(bin_width),
-      bin_height_(bin_height), bin_depth_(bin_depth) {
-  assert(width_ % bin_width_ == 0);
-  assert(height_ % bin_height_ == 0);
-
-  num_bins_x_ = width_ / bin_width_;
-  num_bins_y_ = height_ / bin_height_;
-
-  frustums_.resize(num_bins_y_);
-  for (size_t i = 0; i < frustums_.size(); ++i) {
-    frustums_[i].resize(num_bins_x_, NULL);
-    for (size_t j = 0; j < frustums_[i].size(); ++j)
-      frustums_[i][j].reset(new DiscreteFrustum(smoothing, bin_depth));
-  }
-}
-
 DiscreteDepthDistortionModel::~DiscreteDepthDistortionModel() {
-}
-
-void DiscreteDepthDistortionModel::undistort(DepthMat& depth) const {
-  assert(width_ == depth.cols);
-  assert(height_ == depth.rows);
-
-#pragma omp parallel for
-  for (int v = 0; v < height_; ++v) {
-    for (int u = 0; u < width_; ++u) {
-      if (depth.at<uint16_t>(v, u) == 0)
-        continue;
-
-      double z = depth.at<uint16_t>(v, u) * 0.001;
-      frustum(v, u).interpolatedUndistort(&z);
-      depth.at<uint16_t>(v, u) = z * 1000;
-    }
-  }
 }
 
 void DiscreteDepthDistortionModel::addExample(int v, int u, double ground_truth,
@@ -392,43 +311,6 @@ size_t DiscreteDepthDistortionModel::accumulate(const DepthMat &ground_truth,
   }
 
   return num_training_examples;
-}
-
-void DiscreteDepthDistortionModel::load(const std::string &path) {
-  SerializeFromFile(path.c_str(), *this);
-}
-
-void DiscreteDepthDistortionModel::save(const std::string &path) const {
-  SerializeToFile(path.c_str(), *this);
-}
-
-template <class Archive>
-void DiscreteDepthDistortionModel::serialize(Archive &ar, const unsigned int version) {
-  ar& width_;
-  ar& height_;
-  ar& bin_width_;
-  ar& bin_height_;
-  ar& bin_depth_;
-  ar& num_bins_x_;
-  ar& num_bins_y_;
-  ar& frustums_;
-}
-
-DiscreteFrustum &DiscreteDepthDistortionModel::frustum(int y, int x) {
-  assert(x >= 0 && x < width_);
-  assert(y >= 0 && y < height_);
-  int xidx = x / bin_width_;
-  int yidx = y / bin_height_;
-  return (*frustums_[yidx][xidx]);
-}
-
-const DiscreteFrustum &DiscreteDepthDistortionModel::frustum(int y,
-                                                             int x) const {
-  assert(x >= 0 && x < width_);
-  assert(y >= 0 && y < height_);
-  int xidx = x / bin_width_;
-  int yidx = y / bin_height_;
-  return (*frustums_[yidx][xidx]);
 }
 
 std::string

@@ -41,7 +41,11 @@ struct Frame {
   }
 
   void FilterFringe();
+  cv::Mat3b ColorImage() const { return img; }
   cv::Mat3b DepthImage() const;
+  std::string FilenamePrefix() const {
+    return prefix + "-" + std::to_string(timestamp);
+  }
 
 protected:
   cv::Vec3b colorize(double depth, double min_range, double max_range) const;
@@ -75,8 +79,9 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   FrameProjector();
 
-  void ReestimatePoseAndPlane(Frame &frame,
-                              const Eigen::Vector4d &target_plane) const;
+  static void ReestimatePoseAndPlane(Frame &frame,
+    const slick::PoliCamera<double>& poli_cam,
+                              const Eigen::Vector4d &target_plane);
 
   //! max_range in meters
   void

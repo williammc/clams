@@ -32,7 +32,7 @@ inline float calc_dist_projection_to_point(const int index, const int w,
 }
 
 /// transform plane equation
-Eigen::Vector4d transform(const Eigen::Vector4d& pl, const Eigen::Affine3d& pose) {
+inline Eigen::Vector4d transform(const Eigen::Vector4d& pl, const Eigen::Affine3d& pose) {
   Eigen::Hyperplane<double, 3> hyper_pl(pl.head<3>(), pl[3]);
   hyper_pl = hyper_pl.transform(pose);
   const Eigen::Vector4d v4 = hyper_pl.coeffs();

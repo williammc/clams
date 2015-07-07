@@ -106,7 +106,8 @@ inline void write_points(const std::vector<int>& indices,
 }
 
 inline void write_pointcloud(cv::Mat bgr, cv::Mat depth, 
-  const Eigen::Matrix3d& inv_proj, std::ostream& os, int skip_pix = 7) {
+  const Eigen::Matrix3d& inv_proj, std::ostream& os, int skip_pix = 7, 
+  bool use_pixel_color = true) {
 
     cv::Mat depthfloat_img;
     depth.convertTo(depthfloat_img, CV_32F);
@@ -118,11 +119,11 @@ inline void write_pointcloud(cv::Mat bgr, cv::Mat depth,
         indices.push_back(id);
 
     write_points(indices, inv_proj, bgr, depthfloat_img, os,
-                 Eigen::Vector3d(1, 1, 1), true);
+                 Eigen::Vector3d(0, 0, 1), use_pixel_color);
 }
 
 inline void write_pointcloud(cv::Mat bgr, cv::Mat depth, const Eigen::Matrix3d& inv_proj,
-  std::string file) {
+  std::string file, bool use_pixel_color = true) {
   auto working_path = bfs::path(file).parent_path().string();
   if (!bfs::exists(working_path))
     bfs::create_directory(working_path);
@@ -143,7 +144,7 @@ inline void write_pointcloud(cv::Mat bgr, cv::Mat depth, const Eigen::Matrix3d& 
   write_header("Point cloud", "Pointcloud Exporter", "", ofs);
 
   /// write pointcloud
-  write_pointcloud(bgr, depth, inv_proj, ofs);
+  write_pointcloud(bgr, depth, inv_proj, ofs, 7, use_pixel_color);
 
   // write footer
   write_footer(ofs);

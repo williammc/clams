@@ -53,9 +53,18 @@ public:
   //! z value, not distance to origin.
   //! thread-safe.
   void addExample(double ground_truth, double measurement);
+  void CalcMultipliers();
+  void SmoothMultipliers();
+  void CalcDepthOffsets();
   int index(double z) const;
   void undistort(double *z) const;
   void interpolatedUndistort(double *z) const;
+
+  int num_bins() const { return num_bins_; }
+
+  Eigen::VectorXf& multipliers() { return multipliers_; }
+  Eigen::VectorXf& depth_offsets() { return depth_offsets_; }
+
 
 protected:
   double max_dist_;
@@ -65,6 +74,9 @@ protected:
   Eigen::VectorXf total_numerators_;
   Eigen::VectorXf total_denominators_;
   Eigen::VectorXf multipliers_;
+  Eigen::VectorXf depth_offsets_;
+
+  std::vector<std::vector<float>> gt_depths_, meas_depths_;
 
   friend class DiscreteDepthDistortionModel;
 
@@ -74,6 +86,7 @@ public:
   void serialize(Archive &ar, const unsigned int version);
 };
 
+using DiscreteFrustumPtr = std::shared_ptr<DiscreteFrustum>;
 
 // DiscreteDepthDistortionModel ================================================
 class DiscreteDepthDistortionModel {
@@ -81,22 +94,31 @@ public:
   DiscreteDepthDistortionModel() {}
   ~DiscreteDepthDistortionModel();
   DiscreteDepthDistortionModel(int width, int height, int bin_width = 8,
-                               int bin_height = 6, double bin_depth = 2.0,
+                               int bin_height = 6, double bin_depth = 2,
                                int smoothing = 1);
-  DiscreteDepthDistortionModel(const DiscreteDepthDistortionModel &other);
+  DiscreteDepthDistortionModel(const DiscreteDepthDistortionModel &other) = delete;
   DiscreteDepthDistortionModel &
-  operator=(const DiscreteDepthDistortionModel &other);
+  operator=(const DiscreteDepthDistortionModel &other) = delete;
+
   void undistort(DepthMat& depth) const;
   //! Returns the number of training examples it used from this pair.
   //! Thread-safe.
   size_t accumulate(const DepthMat &ground_truth, const DepthMat &measurement);
+
   void addExample(int v, int u, double ground_truth, double measurement);
+  void CalcMultipliers();
+  void FillMissingMultipliers();
+  void CalcDepthOffsets();
+  void FillMissingDepthOffsets();
   void save(const std::string &path) const;
   void load(const std::string &path);
   //! Saves images to the directory found at path.
   //! If path doesn't exist, it will be created.
   void visualize(const std::string &path) const;
   std::string status(const std::string &prefix = "") const;
+
+  int num_bins_x() const { return num_bins_x_; }
+  int num_bins_y() const { return num_bins_y_; }
 
 protected:
   //! Image width.
@@ -112,9 +134,8 @@ protected:
   int num_bins_x_;
   int num_bins_y_;
   //! frustums_[y][x]
-  std::vector<std::vector<DiscreteFrustum *>> frustums_;
+  std::vector<std::vector<DiscreteFrustumPtr>> frustums_;
 
-  void deleteFrustums();
   DiscreteFrustum &frustum(int y, int x);
   const DiscreteFrustum &frustum(int y, int x) const;
   

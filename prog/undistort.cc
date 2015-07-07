@@ -10,15 +10,19 @@ int main(int argc, char **argv) {
   bpo::positional_options_description p;
 
   std::string model_path;
-  std::string color_file, depth_file;
+  std::string cam_file, color_file, depth_file;
+  float axis_length;
 
   opts_desc.add_options()
     ("help,h", "produce help message")
+    ("cam_file", bpo::value(&cam_file)->required(), "Camera config file.")
     ("intrinsics", bpo::value(&model_path)->required(), "Distortion model.")
     ("color_file", bpo::value(&color_file)->required(), "Color image file.")
-    ("depth_file", bpo::value(&depth_file)->required(), "Depth image file.");
+    ("depth_file", bpo::value(&depth_file)->required(), "Depth image file.")
+    ("axis_length", bpo::value(&axis_length)->default_value(1.0), "Axis length in export.");
 
   p.add("intrinsics", 1);
+  p.add("cam_file", 1);
   p.add("color_file", 1);
   p.add("depth_file", 1);
 
@@ -57,17 +61,26 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  Eigen::Matrix3d inv_proj;
-  inv_proj << 525, 0, 320,
-                    0, 525, 240,
-                    0, 0, 1;
+  std::array<double, 9> cam{640, 480, 525, 525, 319.5, 239.5, 0, 0, 0};
+  if (!cam_file.empty())
+    clams::ReadCamConfig(cam_file, cam);
 
-  inv_proj = inv_proj.inverse().eval();
+  Eigen::Matrix3d inv_proj = clams::to_projection(cam).inverse();
 
-  clams::io::x3d::write_pointcloud(cimg, dimg, inv_proj, color_file + "-original.x3d");
+  clams::io::x3d::write_pointcloud(cimg, dimg, inv_proj, color_file + "-original.x3d", true);
 
   model.undistort(dimg);
 
-  clams::io::x3d::write_pointcloud(cimg, dimg, inv_proj,  color_file + "-undistorted.x3d");
+  clams::io::x3d::write_pointcloud(cimg, dimg, inv_proj,  color_file + "-undistorted.x3d", false);
 
+  std::ofstream ofs(color_file + "-combined.x3d");
+  // write header
+  clams::io::x3d::write_header("Combined Point cloud", "Pointcloud Exporter", "", ofs);
+  clams::io::x3d::write_axis(axis_length, ofs);
+
+  ofs << "<Inline url='" << (color_file + "-original.x3d") << "' />\n";
+  ofs << "<Inline url='" << (color_file + "-undistorted.x3d") << "' />\n";
+
+  // write footer
+  clams::io::x3d::write_footer(ofs);
 }

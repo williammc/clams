@@ -39,8 +39,5 @@ int main(int argc, char **argv) {
   model.load(model_path);
   std::string vis_dir = model_path + "-visualization";
   model.visualize(vis_dir);
-  std::cout << "Saved visualization of distortion model to " << vis_dir
-            << std::endl;
-
-  return 0;
+  printf("Loaded visualization of distortion model from (%s)\n", vis_dir.c_str());
 }

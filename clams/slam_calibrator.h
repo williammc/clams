@@ -4,6 +4,8 @@
 #include "clams/cam_calib.h"
 #include "clams/discrete_depth_distortion_model.h"
 
+#define CALIB_CAM_INTRINSICS 0
+
 namespace clams {
 class SlamCalibrationVisualizer;
 
@@ -18,6 +20,7 @@ public:
 
   size_t size() const;
   bool Calibrate();
+  void Validate();
 
   CalibPattern& pattern() { return pattern_; }
   FrameProjector& proj() { return proj_; }
@@ -36,10 +39,16 @@ protected:
   //! Updates DiscreteDepthDistortionModel using a sequence, trajectory,
   //! and pre-built map.
   //! Returns the number of training examples harvested from this map.
-  size_t ProcessMap(SlamMap &map,
-                    DiscreteDepthDistortionModel& model) const;
-  size_t ProcessMapPlanarTarget(SlamMap &map,
-                                DiscreteDepthDistortionModel &model) const;
+  size_t ProcessMap(SlamMap &map);
+  size_t ProcessMapPlanarTarget(SlamMap &map);
+
+  static bool ValidDepthFromPlanarPattern(
+                       cv::Mat3b img, cv::Mat1s undist_depth,
+                       const slick::PoliCamera<>& cam,
+                       const CalibPattern& pattern,
+                        cv::Mat1f& errors, 
+                        cv::Mat3b* drawn_pattern = nullptr);
+  void ValidatePlanarTarget(SlamMap &slammap) const;
 
   friend class SlamCalibrationVisualizer;
   CalibPattern pattern_;

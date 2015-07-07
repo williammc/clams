@@ -52,6 +52,7 @@ void DiscreteDepthDistortionModel::visualize(const std::string &dir) const {
         const DiscreteFrustum &frustum =
             *frustums_[y / bin_height_][x / bin_width_];
         float val = frustum.multipliers_(i);
+        // val = frustum.depth_offsets_(i);
         if (val > 1)
           mult(y, x)[2] = std::min(255., 255 * (val - 1.0) / 0.25);
         if (val < 1)
@@ -106,6 +107,7 @@ void DiscreteDepthDistortionModel::visualize(const std::string &dir) const {
         const DiscreteFrustum &frustum =
             *frustums_[y / bin_height_][x / bin_width_];
         float val = frustum.multipliers_(i);
+        // val = frustum.depth_offsets_(i);
         if (val > 1) {
           pubmult(y, x)[0] = 255 - std::min(255., 255 * (val - 1.0) / 0.1);
           pubmult(y, x)[1] = 255 - std::min(255., 255 * (val - 1.0) / 0.1);

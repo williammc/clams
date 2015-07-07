@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
   std::cout << std::endl;
 
   if (calibrator->Calibrate()) {
-    clams::DiscreteDepthDistortionModel model = calibrator->depth_model();
+    auto& model = calibrator->depth_model();
     std::string output_path = workspace + "/clams/distortion_model.bin";
     printf("Save distortion model to %s\n", output_path.c_str());
     model.save(output_path);
@@ -129,6 +129,7 @@ int main(int argc, char **argv) {
       ofs << cam[i] << " ";
     ofs << "\n";
 
+    calibrator->Validate();
   } else {
     printf("No luck!!! calibration failed!!!\n");
   }

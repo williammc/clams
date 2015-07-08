@@ -66,11 +66,15 @@ if [ -z "${3+set}" ]; then # argument 2 is data_path
   ;;
 
   "calib")
-    prefix=$data_path_prefix/data/depth_calib/primesense
+    prefix=$data_path_prefix/data/depth_calib/primesense-0.068
+    # prefix=$data_path_prefix/data/depth_calib/primesense-0.278
 
     data_path=$prefix/dots-1
+    data_path=$prefix/dots-2
     data_path=$prefix/dots-3
-    data_path=$prefix/test-1.5-2-3-4-5 # 0, 31, 71, 110, 137
+
+    test_data_path=$data_path_prefix/data/depth_calib/primesense-0.068/test-1.5-2-3-4-5 # 0, 31, 71, 110, 137
+    test_data_path=$data_path_prefix/data/depth_calib/primesense-0.278/test-2-3-4-5-5.7 # 0, 16, 40, 70, 140
     filename=kinect_recorder
   ;;
   esac
@@ -109,7 +113,7 @@ case "$1" in
   --traj_file "1" \
   --slammap_file $data_path/clams/clams-slammap.bin \
   --pointcloud $data_path/clams/clams-cloud.pcd \
-  --resolution 0.01 --max_range 2.0 --skip_poses 10
+  --resolution 0.01 --max_range 2.0 --skip_poses 7
   ;;
 
 "exp-slmap")
@@ -118,35 +122,55 @@ case "$1" in
   ;;
 
 "calib")
-  calibrate --increment 5 --workspace $prefix \
-  --calib_params 1 --calib_params 5 --calib_params 4 --calib_params 0.068
+  calibrate --increment 1 --workspace $prefix \
+  --calib_params 1 --calib_params 8 --calib_params 5 --calib_params 0.068
+
+  # calibrate --increment 1 --workspace $prefix \
+  # --calib_params 1 --calib_params 6 --calib_params 4 --calib_params 0.278
   ;;
 
 "vis-mo")
   visualize_model --intrinsics $prefix/clams/distortion_model.bin
   ;;
 
-"undist")
-  input_path=$data_path
+"undist-old")
   # input_path=$prefix/20140612-ceiling-1
   file_prefix=sensor_recorder_000000 # 1.5meter
   axis_length=1.5
-  # file_prefix=sensor_recorder_000031 # 2meter
-  # axis_length=2
-  # file_prefix=sensor_recorder_000071 # 3meter
-  # axis_length=3
+  file_prefix=sensor_recorder_000031 # 2meter
+  axis_length=2
+  file_prefix=sensor_recorder_000071 # 3meter
+  axis_length=3
   file_prefix=sensor_recorder_000110 # 4meter
   axis_length=4
   file_prefix=sensor_recorder_000140 # 4.5meter
   axis_length=4.5
-  # file_prefix=sensor_recorder_000172
-  undistort --intrinsics E:/Data/depth_calib/primesense/clams/distortion_model.bin \
-  --cam_file E:/Data/depth_calib/primesense/clams \
-  --color_file $input_path/$file_prefix-color.png \
-  --depth_file $input_path/$file_prefix-depth.png \
+  # # file_prefix=sensor_recorder_000172
+  undistort --intrinsics $prefix/clams/distortion_model.bin \
+  --cam_file $prefix/clams \
+  --color_file $test_data_path/$file_prefix-color.png \
+  --depth_file $test_data_path/$file_prefix-depth.png \
   --axis_length $axis_length
   ;;
 
+"undist")
+  file_prefix=sensor_recorder_000000 # 2meter
+  axis_length=2.102
+  # file_prefix=sensor_recorder_000016 # 3meter
+  # axis_length=3.082
+  # file_prefix=sensor_recorder_000040 # 4meter
+  # axis_length=4.003
+  # file_prefix=sensor_recorder_000070 # 5meter
+  # axis_length=5.005
+  # file_prefix=sensor_recorder_000140 # 5.7meter
+  # axis_length=5.720
+  # # file_prefix=sensor_recorder_000172
+  undistort --intrinsics $prefix/clams/distortion_model.bin \
+  --cam_file $prefix/clams \
+  --color_file $test_data_path/$file_prefix-color.png \
+  --depth_file $test_data_path/$file_prefix-depth.png \
+  --axis_length $axis_length
+  ;;
 esac
 
 

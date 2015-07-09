@@ -1,0 +1,2 @@
+# camera parameters (width, height, fx, fy, cx, cy, k1, k2, k3)
+COLOR-CAM 640 480 570.342 570.342 319.5 239.5 0 0 0 

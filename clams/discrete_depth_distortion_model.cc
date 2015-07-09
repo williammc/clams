@@ -31,18 +31,6 @@ std::vector<int> get_inliers(std::vector<float> meas) {
   return inliers;
 }
 
-DiscreteFrustum::DiscreteFrustum(int smoothing, double bin_depth)
-    : max_dist_(10), bin_depth_(bin_depth) {
-  num_bins_ = ceil(max_dist_ / bin_depth_);
-  counts_ = Eigen::VectorXf::Ones(num_bins_) * smoothing;
-  total_numerators_ = Eigen::VectorXf::Ones(num_bins_) * smoothing;
-  total_denominators_ = Eigen::VectorXf::Ones(num_bins_) * smoothing;
-  multipliers_ = Eigen::VectorXf::Ones(num_bins_);
-  depth_offsets_ = Eigen::VectorXf::Ones(num_bins_);
-  gt_depths_.resize(num_bins_);
-  meas_depths_.resize(num_bins_);
-}
-
 void DiscreteFrustum::addExample(double ground_truth, double measurement) {
   std::unique_lock<std::mutex> ul(mutex_);
 
@@ -178,9 +166,6 @@ void DiscreteFrustum::CalcDepthOffsets() {
 }
 
 // =============================================================================
-DiscreteDepthDistortionModel::~DiscreteDepthDistortionModel() {
-}
-
 void DiscreteDepthDistortionModel::addExample(int v, int u, double ground_truth,
                                               double measurement) {
   frustum(v, u).addExample(ground_truth, measurement);

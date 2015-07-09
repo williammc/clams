@@ -50,7 +50,17 @@ protected:
 // DiscreteFrustum =============================================================
 class DiscreteFrustum : public SharedLockable {
 public:
-  DiscreteFrustum(int smoothing = 1, double bin_depth = 1.0);
+  DiscreteFrustum(int smoothing = 1, double bin_depth = 1.0)
+      : max_dist_(10), bin_depth_(bin_depth) {
+    num_bins_ = ceil(max_dist_ / bin_depth_);
+    counts_ = Eigen::VectorXf::Ones(num_bins_) * smoothing;
+    total_numerators_ = Eigen::VectorXf::Ones(num_bins_) * smoothing;
+    total_denominators_ = Eigen::VectorXf::Ones(num_bins_) * smoothing;
+    multipliers_ = Eigen::VectorXf::Ones(num_bins_);
+    depth_offsets_ = Eigen::VectorXf::Ones(num_bins_);
+    gt_depths_.resize(num_bins_);
+    meas_depths_.resize(num_bins_);
+  }
   //! z value, not distance to origin.
   //! thread-safe.
   void addExample(double ground_truth, double measurement);
@@ -132,7 +142,7 @@ using DiscreteFrustumPtr = std::shared_ptr<DiscreteFrustum>;
 class DiscreteDepthDistortionModel {
 public:
   DiscreteDepthDistortionModel() {}
-  ~DiscreteDepthDistortionModel();
+  ~DiscreteDepthDistortionModel() {}
   DiscreteDepthDistortionModel(int width, int height, int bin_width = 8,
                                int bin_height = 6, double bin_depth = 2,
                                int smoothing = 1)

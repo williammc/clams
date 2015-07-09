@@ -5,6 +5,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include "slick/util/mestimator.h"
+#include "clams/common/typedefs.h"
 #include "clams/common/clams_macros.h"
 #include "clams/serialization/serialization.h"
 

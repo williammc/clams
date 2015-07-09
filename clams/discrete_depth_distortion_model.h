@@ -3,12 +3,12 @@
 #include <assert.h>
 #include <vector>
 #include <mutex>
-#include "clams/common/typedefs.h"
 #include "clams/common/clams_macros.h"
 #include "clams/common/clams_defer.h"
 #include "clams/serialization/serialization.h"
 
 namespace clams {
+using DepthMat = cv::Mat_<uint16_t>;
 
 /* SharedLockable is based on the uncopyable boost::shared_mutex.
    This presents a dilemma when assigning or copy constructing.

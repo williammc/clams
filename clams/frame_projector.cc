@@ -450,7 +450,7 @@ void FrameProjector::EstimateDepthFromPlanarPattern(const Eigen::Vector4d& targe
       if (meas.depth(v, u) == 0) continue;
       if (target_mask(v, u)) {
         Eigen::Vector3d cam = slick::unproject(poli_cam_.UnProject(Eigen::Vector2d(u, v)));
-        cam = cam.normalized() * meas.depth(v, u) * 0.001;
+        cam = cam * meas.depth(v, u) * 0.001;
         slick::Plane3d pln(meas.target_plane);
         Eigen::Vector3d pt = pln.project(cam);
         estimate(v, u) = pt[2]*1000;
